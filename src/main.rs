@@ -2,9 +2,12 @@
 pub mod protos {
     include!(concat!(env!("OUT_DIR"), "/hyperstone.demo.rs"));
 }
+use byteorder::ByteOrder;
+use byteorder::LittleEndian;
 use bytes::Buf;
 use bytes::Bytes;
 use prost::Message;
+use snap::read::FrameDecoder;
 use std::alloc::Global;
 use std::fs::File;
 use std::io::BufReader;
@@ -19,58 +22,60 @@ fn main() {
     let f = File::open("dota.dem").unwrap();
     let mut reader = BufReader::new(f);
     let mut buffer: Vec<u8, Global> = vec![0; 8];
-    reader.read(&mut buffer).unwrap();
+    reader.read_exact(&mut buffer).unwrap();
     let demo_header = str::from_utf8(&buffer).unwrap();
     println!("{}", demo_header);
 
     let mut gio_buffer: Vec<u8, Global> = vec![0; 4];
-    reader.read(&mut gio_buffer).unwrap(); // python  (b'qI\x9e\x04')  // rust [71, 49, 9E, 04] // looks close enough
-                                           // println!("hex {:02X?}", gio_buffer);
-    let gio = (0..4).fold(0u32, |sum, i| {
-        // println!("i {}", i);
-        // println!("buff {}", gio_buffer[i]);
-        let out = u32::from(gio_buffer[i]) << (i * 8);
-        // println!("out {}", out);
-        out + sum
-    }); // 77482353
+    reader.read_exact(&mut gio_buffer).unwrap();
+
+    let gio = LittleEndian::read_u32(&gio_buffer);
     println!("gio {}", gio);
 
-    // solarpunk
-
-    let current_pos = reader.stream_position().unwrap();
+    let _current_pos = reader.stream_position().unwrap();
     // println!("current {}", current_pos);
-    let _res = reader.seek(SeekFrom::Start(gio.into())).unwrap();
+    reader.seek(SeekFrom::Start(gio.into())).unwrap();
 
     let peek = read(&mut reader);
 
-    let file_info = protos::CDemoFileInfo::decode(peek.message).unwrap();
+    // verify compressed data 
+    let mut buf:Vec<u8, Global> = vec![0; peek.size.try_into().unwrap()];
+    FrameDecoder::new(peek.message.reader()).read_exact(&mut buf).unwrap();
+    println!("{:?}", buf); 
+
+    let file_info = protos::CDemoFileInfo::decode(Bytes::from(buf)).unwrap();
     println!("Playback time {}", file_info.playback_time.unwrap());
     println!("Playback ticks {}", file_info.playback_ticks.unwrap());
     println!("Playback frames {}", file_info.playback_frames.unwrap());
 }
 
-fn parse(message: Bytes, message_type: usize) {}
+// fn parse(message: Bytes, message_type: usize) {}
 
 struct Peek {
-    tick: usize,
-    message_type: usize,
+    tick: u32,
+    message_type: u32,
     tell: u64,
-    size: usize,
+    size: u32,
     message: Bytes,
     compression: bool,
 }
 
 fn read(reader: &mut BufReader<File>) -> Peek {
     let mut kind = read_varint(reader);
-    let compressed = if kind & EDemoCommands::DemIsCompressedS2 as usize == 0 {
+    let compressed = if kind & EDemoCommands::DemIsCompressedS2 as u32 == 0 {
         false
     } else {
         true
     }; // not equal is 0 equal is value
     println!("compressed {}", compressed);
-    println!("kind {}", kind);
 
-    // kind = (kind & ~pb_d.DEM_IsCompressed) if comp else kind
+    // deal with compression
+    kind = if compressed {
+        kind & !(EDemoCommands::DemIsCompressedS2 as u32)
+    } else {
+        kind
+    };
+    println!("kind {}", kind);
 
     let tick = read_varint(reader);
     let size = read_varint(reader);
@@ -81,7 +86,7 @@ fn read(reader: &mut BufReader<File>) -> Peek {
     // if kind in IMPL_BY_KIND:
     //  message = self.io.read(size)
     let message = read_message(reader, size);
-    println!("Message {:?}", message);
+    println!("Message {:X?}", message);
     let tell = reader.stream_position().unwrap(); // position of reader
     println!("Tell {}", tell);
     Peek {
@@ -94,27 +99,73 @@ fn read(reader: &mut BufReader<File>) -> Peek {
     }
 }
 
-fn read_varint(reader: &mut BufReader<File>) -> usize {
-    let mut size = 0;
-    let mut value = 0;
-    let mut shift = 0;
-    let vi_shift = 7;
-    let vi_mask = (1 << 32) - 1;
+// Also add the error handling
+// might be correct based on valve version
+fn read_varint(reader: &mut BufReader<File>) -> u32 {
+    let mut count = 0;
+    let mut result = 0 as u32;
     loop {
-        let mut varintbuf: Vec<u8, Global> = vec![0, 1];
-        let byte = reader.read(&mut varintbuf).unwrap();
-        size += 1;
-        value |= (byte & 0x7f) << shift;
-        shift += vi_shift;
-        if (byte & 0x80) == 0 {
-            value &= vi_mask;
-            return value;
+        let mut varintbuf: Vec<u8, Global> = vec![0; 1];
+        reader.read_exact(&mut varintbuf).unwrap();
+        result |= (varintbuf[0] as u32 & 0x7f) << (7 * count);
+        count += 1;
+        if varintbuf[0] & 0x80 == 0 {
+            return result.into();
         }
     }
 }
 
-fn read_message(reader: &mut BufReader<File>, size: usize) -> Bytes {
-    let mut message: Vec<u8, Global> = vec![0, size.try_into().unwrap()];
-    let byte = reader.read(&mut message).unwrap();
+// uint32 ReadVarInt32( const std::string& buf, size_t& index )
+// {
+// 	uint32 b;
+// 	int count = 0;
+// 	uint32 result = 0;
+
+// 	do
+// 	{
+// 		if ( count == 5 )
+// 		{
+// 			// If we get here it means that the fifth bit had its
+// 			// high bit set, which implies corrupt data.
+// 			assert( 0 );
+// 			return result;
+// 		}
+// 		else if ( index >= buf.size() )
+// 		{
+// 			assert( 0 );
+// 			return result;
+// 		}
+
+// 		b = buf[ index++ ];
+// 		result |= ( b & 0x7F ) << ( 7 * count );
+// 		++count;
+// 	} while ( b & 0x80 );
+
+// 	return result;
+// }
+
+// python version incorrect
+// fn read_varint(reader: &mut BufReader<File>) -> u32 {
+//     let mut size = 0;
+//     let mut value = 0 as u32;
+//     let mut shift = 0;
+//     let vi_shift = 7;
+//     let vi_mask = (1 << 32) - 1 as u32;
+//     loop {
+//         let mut varintbuf: Vec<u8, Global> = vec![0, 1];
+//         let byte = reader.read(&mut varintbuf).unwrap();
+//         size += 1;
+//         value |= (varintbuf[0] as u32 & 0x7f) << shift;
+//         shift += vi_shift;
+//         if (varintbuf[0] & 0x80) == 0 {
+//             value &= vi_mask;
+//             return value.into();
+//         }
+//     }
+// }
+
+fn read_message(reader: &mut BufReader<File>, size: u32) -> Bytes {
+    let mut message: Vec<u8, Global> = vec![0; size.try_into().unwrap()];
+    reader.read_exact(&mut message).unwrap();
     Bytes::from(message)
 }

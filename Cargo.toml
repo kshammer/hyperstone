@@ -6,9 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytes="1.1.0"
-prost ="0.10.1"
-
+bytes = "1.1.0"
+prost = "0.10.1"
+byteorder = "1.4.3" 
+snap = "1" 
  
 [build-dependencies]
 prost-build = { version = "0.10.1" }

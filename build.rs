@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::fs;
 extern crate prost_build;
 
 fn main() {
