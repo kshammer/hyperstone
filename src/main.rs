@@ -4,7 +4,6 @@ pub mod protos {
 }
 use byteorder::ByteOrder;
 use byteorder::LittleEndian;
-use bytes::Buf;
 use bytes::Bytes;
 use prost::Message;
 use snap::raw::Decoder;
@@ -14,12 +13,11 @@ use std::io::BufReader;
 use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
-use std::io; 
 use std::str;
 
 use crate::protos::EDemoCommands;
 
-fn main(){
+fn main() {
     let f = File::open("dota.dem").unwrap();
     let mut reader = BufReader::new(f);
     let mut buffer: Vec<u8, Global> = vec![0; 8];
@@ -39,7 +37,7 @@ fn main(){
 
     let peek = read(&mut reader);
 
-    // verify compressed data 
+    // verify compressed data
     let mut decoder = Decoder::new();
     let x = decoder.decompress_vec(&peek.message.to_vec()).unwrap();
     let playback = Bytes::from(x);
@@ -47,8 +45,31 @@ fn main(){
     println!("Playback time {}", file_info.playback_time.unwrap());
     println!("Playback ticks {}", file_info.playback_ticks.unwrap());
     println!("Playback frames {}", file_info.playback_frames.unwrap());
-    println!("Match_id {}", file_info.game_info.as_ref().unwrap().dota.as_ref().unwrap().match_id.unwrap());
-    println!("Player Info {}", file_info.game_info.as_ref().unwrap().dota.as_ref().unwrap().player_info[0].player_name());
+    println!(
+        "Match_id {}",
+        file_info
+            .game_info
+            .as_ref()
+            .unwrap()
+            .dota
+            .as_ref()
+            .unwrap()
+            .match_id
+            .unwrap()
+    );
+    println!(
+        "Player Info {}",
+        file_info
+            .game_info
+            .as_ref()
+            .unwrap()
+            .dota
+            .as_ref()
+            .unwrap()
+            .player_info[0]
+            .player_name()
+    );
+    // upto skadi demo 249
 }
 
 // fn parse(message: Bytes, message_type: usize) {}
@@ -116,7 +137,6 @@ fn read_varint(reader: &mut BufReader<File>) -> u32 {
         }
     }
 }
-
 
 fn read_message(reader: &mut BufReader<File>, size: u32) -> Bytes {
     let mut message: Vec<u8, Global> = vec![0; size.try_into().unwrap()];
