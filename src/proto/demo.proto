@@ -137,12 +137,12 @@ message CDemoStringTables {
 
 	message table_t {
 		optional string table_name = 1;
-		repeated CDemoStringTables.items_t items = 2;
-		repeated CDemoStringTables.items_t items_clientside = 3;
+		repeated .hyperstone.demo.CDemoStringTables.items_t items = 2;
+		repeated .hyperstone.demo.CDemoStringTables.items_t items_clientside = 3;
 		optional int32 table_flags = 4;
 	}
 
-	repeated CDemoStringTables.table_t tables = 1;
+	repeated .hyperstone.demo.CDemoStringTables.table_t tables = 1;
 }
 
 message CDemoStop {
