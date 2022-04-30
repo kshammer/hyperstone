@@ -24,7 +24,7 @@ fn main() {
     reader.read_exact(&mut buffer).unwrap();
     let demo_header = str::from_utf8(&buffer).unwrap();
     println!("{}", demo_header);
-    let current_pos = get_file_info(&mut reader);
+    let current_pos = get_file_info(&mut reader) + 4; // go to byte 16 
     println!("current {}", current_pos);
     reader.seek(SeekFrom::Start(current_pos)).unwrap();
 
@@ -42,8 +42,13 @@ fn main() {
             }
             EDemoCommands::DemFileHeader => {
                 println!("Header");
-                let header = protos::CDemoFileHeader::decode(peek.message).unwrap();
-                println!("map_name {}", header.map_name().to_string());
+                let header = protos::CDemoFileHeader::decode(peek.message);
+                match header {
+                    Ok(_) => println!("AAA"),
+                    Err(error) => println!("decode error {}", error),
+                }
+
+                // println!("map_name {}", header.map_name().to_string());
             }
             EDemoCommands::DemFileInfo => {
                 println!("File Info");
@@ -232,12 +237,14 @@ fn read_varint(reader: &mut BufReader<File>) -> u32 {
 
 fn get_message(reader: &mut BufReader<File>, size: u32, compressed: bool) -> Bytes {
     let mut message: Vec<u8, Global> = vec![0; size.try_into().unwrap()];
+    
     reader.read_exact(&mut message).unwrap();
     if compressed {
+        // println!("Message {:x?}", message);
         message = decompress(&message);
     }
     let bytes = Bytes::from(message);
-    println!("Message {:x?}", bytes);
+    // println!("Message {:x?}", bytes);
     bytes
 }
 
