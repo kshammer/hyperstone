@@ -1,8 +1,8 @@
+use bytes::Bytes;
 use snap::raw::Decoder;
 use std::alloc::Global;
-use std::io::{BufReader, Seek, Read};
 use std::fs::File;
-use bytes::Bytes;
+use std::io::{BufReader, Read, Seek};
 use tracing::debug;
 
 use crate::protos::EDemoCommands;
@@ -15,8 +15,19 @@ pub struct Peek {
     pub message: Bytes,
 }
 
-pub fn read_segment(reader: &mut BufReader<File>) -> Peek {
-    let mut kind = read_varint(reader);
+pub struct ParseError {
+    pub error: String,
+}
+
+pub fn read_segment(reader: &mut BufReader<File>) -> Result<Peek, ParseError> {
+    let mut kind = match read_varint(reader) {
+        Ok(val) => val,
+        Err(_) => {
+            return Err(ParseError {
+                error: "Error maybe end of file ?".to_string(),
+            })
+        }
+    };
     let compressed = if kind & EDemoCommands::DemIsCompressedS2 as u32 == 0 {
         false
     } else {
@@ -32,8 +43,22 @@ pub fn read_segment(reader: &mut BufReader<File>) -> Peek {
     };
     debug!("kind {}", kind);
 
-    let tick = read_varint(reader);
-    let size = read_varint(reader);
+    let tick = match read_varint(reader) {
+        Ok(val) => val,
+        Err(_) => {
+            return Err(ParseError {
+                error: "Error maybe end of file ?".to_string(),
+            })
+        }
+    };
+    let size = match read_varint(reader) {
+        Ok(val) => val,
+        Err(_) => {
+            return Err(ParseError {
+                error: "Error maybe end of file ?".to_string(),
+            })
+        }
+    };
     debug!("tick {}", tick);
     debug!("size {}", size);
 
@@ -41,27 +66,34 @@ pub fn read_segment(reader: &mut BufReader<File>) -> Peek {
 
     let tell = reader.stream_position().unwrap(); // position of reader
     debug!("Tell {}", tell);
-    Peek {
+    Ok(Peek {
         _tick: tick,
         message_type: kind,
         _tell: tell,
         _size: size,
         message: message,
-    }
+    })
 }
 
 // Also add the error handling
 // might be correct based on valve version
-fn read_varint(reader: &mut BufReader<File>) -> u32 {
+fn read_varint(reader: &mut BufReader<File>) -> Result<u32, i32> {
     let mut count = 0;
     let mut result = 0 as u32;
     loop {
         let mut varintbuf: Vec<u8, Global> = vec![0; 1];
-        reader.read_exact(&mut varintbuf).unwrap();
-        result |= (varintbuf[0] as u32 & 0x7f) << (7 * count);
-        count += 1;
-        if varintbuf[0] & 0x80 == 0 {
-            return result.into();
+        match reader.read_exact(&mut varintbuf) {
+            Ok(_) => {
+                result |= (varintbuf[0] as u32 & 0x7f) << (7 * count);
+                count += 1;
+                if varintbuf[0] & 0x80 == 0 {
+                    return Ok(result.into());
+                }
+            }
+            Err(_) => {
+                debug!("End of file ");
+                return Err(-1);
+            }
         }
     }
 }
