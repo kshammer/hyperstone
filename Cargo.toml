@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bytes = "1.1.0"
 prost = "0.10.1"
+prost-types = "0.10.1" 
 byteorder = "1.4.3" 
 snap = "1" 
 tracing = "0.1"

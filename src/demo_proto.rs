@@ -1,6 +1,7 @@
 use byteorder::{ByteOrder, LittleEndian};
 use prost::Message;
-use tracing::debug;
+use prost_types::Any;
+use tracing::{debug, info};
 
 use crate::{byte_utils, protos::{EDemoCommands, CDemoFileHeader, CDemoFileInfo, CDemoSyncTick, CDemoSendTables, CDemoClassInfo, CDemoStringTables, CDemoPacket, CDemoCustomData, CDemoCustomDataCallbacks, CDemoUserCmd, CDemoFullPacket, CDemoSaveGame, CDemoSpawnGroups}};
 use std::{
@@ -27,32 +28,73 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemFileHeader => {
             debug!("Header");
-            let header = protos::CDemoFileHeader::decode(peek.message).unwrap();
-            // println!("map_name {}", header.map_name().to_string());
+            // not a lot of interesting information in here, mostly meta data about the demo file. 
+            // let header = protos::CDemoFileHeader::decode(peek.message).unwrap();
         }
         EDemoCommands::DemFileInfo => {
             debug!("File Info");
-            let file_info = protos::CDemoFileInfo::decode(peek.message).unwrap();
+            // ref get_file_info for how to investigate, information about players and meta data about the match. 
+            // let file_info = protos::CDemoFileInfo::decode(peek.message).unwrap();
+
         }
         EDemoCommands::DemSyncTick => {
             debug!("Sync Tick");
-            let sync_tick = protos::CDemoSyncTick::decode(peek.message).unwrap();
+            // nothing interesting in here right now. 
         }
         EDemoCommands::DemSendTables => {
+            // something to be parsed 
             debug!("Send tables");
-            let send_tables = protos::CDemoSendTables::decode(peek.message).unwrap();
+            // let send_tables = protos::CDemoSendTables::decode(peek.message).unwrap();
+            // let mut reader =  BufReader::new(send_tables.data());
+            // let cap = reader.capacity();
+            // info!("Table size {}", cap);
+            // let buf_size = byte_utils::read_varint(&mut reader).unwrap();
+            // let mut buf: Vec<u8, Global> = vec![0; buf_size.try_into().unwrap()]; 
+            // reader.read_exact(&mut buf);
+            // let cool = Any {
+            //     type_url: "path/hyperstone.dota_netmessages.CsvcMsgFlattenedSerializer".to_string(),
+            //     value: buf
+            // };
+            // let mut cool_buf: Vec<u8> = vec![];
+            // docs don't explain how to deserialize https://docs.rs/prost-types/latest/prost_types/struct.Any.html
+            // look into this https://github.com/fdeantoni/prost-wkt
+
+
         }
         EDemoCommands::DemClassInfo => {
             debug!("Class info");
-            let class_info = protos::CDemoClassInfo::decode(peek.message).unwrap();
+            // let class_info = protos::CDemoClassInfo::decode(peek.message).unwrap();
+            // let holder = class_info.classes;
+            // for cool in holder {
+            //     info!("Network name {}", cool.network_name());
+            //     info!("Table name {}", cool.table_name());
+            // }
+            // names of entities in the demo 
+            //  INFO hyperstone::demo_proto: Table name
+            //  INFO hyperstone::demo_proto: Network name CDOTA_Unit_Hero_Sniper
+            //  INFO hyperstone::demo_proto: Table name
+            //  INFO hyperstone::demo_proto: Network name CDOTA_Unit_Hero_Spectre
+            //  INFO hyperstone::demo_proto: Table name
+            //  INFO hyperstone::demo_proto: Network name CDOTA_Unit_Hero_SpiritBreaker
+            //  INFO hyperstone::demo_proto: Table name
         }
         EDemoCommands::DemStringTables => {
             debug!("String tables");
-            let string_tables = protos::CDemoStringTables::decode(peek.message).unwrap();
+            // let string_tables = protos::CDemoStringTables::decode(peek.message).unwrap();
+            // let holder = string_tables.tables; 
+            // for hold in holder {
+            //     info!("Table name {}", hold.table_name());
+            //     for hol in hold.items {
+            //         info!("String {}", hol.str());
+            //         info!("Bytes {:?}", hol.data());
+                
+            //     }
+            // }
         }
         EDemoCommands::DemPacket => {
             debug!("Packet");
             let dem_packet = protos::CDemoPacket::decode(peek.message).unwrap();
+            
         }
         EDemoCommands::DemSignonPacket => {
             // no proto

@@ -1,9 +1,6 @@
 #![feature(allocator_api)]
-use byteorder::ByteOrder;
-use byteorder::LittleEndian;
-
+#![feature(buf_read_has_data_left)]
 use std::alloc::Global;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
@@ -18,9 +15,9 @@ mod protos {
 }
 mod byte_utils;
 mod demo_proto;
+mod packet_proto;
 use crate::demo_proto::get_file_info;
 use crate::demo_proto::parse;
-use crate::protos::EDemoCommands;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -36,6 +33,8 @@ fn main() {
     debug!("current {}", current_pos);
     reader.seek(SeekFrom::Start(current_pos)).unwrap();
     let now = Instant::now();
+
+    // switch to has data left 
     loop {
         if parse(&mut reader) == -1 {
             break;
