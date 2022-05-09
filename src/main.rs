@@ -12,6 +12,8 @@ use tracing::debug;
 use tracing::info;
 mod protos {
     include!(concat!(env!("OUT_DIR"), "/hyperstone.demo.rs"));
+    include!(concat!(env!("OUT_DIR"), "/hyperstone.dota_netmessages.rs"));
+    include!(concat!(env!("OUT_DIR"), "/hyperstone.netmessages.rs"));
 }
 mod byte_utils;
 mod demo_proto;
@@ -34,7 +36,7 @@ fn main() {
     reader.seek(SeekFrom::Start(current_pos)).unwrap();
     let now = Instant::now();
 
-    // switch to has data left 
+    // switch to has data left
     loop {
         if parse(&mut reader) == -1 {
             break;

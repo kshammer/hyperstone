@@ -7,12 +7,17 @@ edition = "2021"
 
 [dependencies]
 bytes = "1.1.0"
-prost = "0.10.1"
-prost-types = "0.10.1" 
+prost = "0.10"
+prost-types = "0.10" 
+prost-wkt = "0.3.1"
+prost-wkt-types = "0.3.1"
+serde = { version = "1.0", features = ["derive"] }
 byteorder = "1.4.3" 
 snap = "1" 
 tracing = "0.1"
 tracing-subscriber = "0.2"
  
 [build-dependencies]
-prost-build = { version = "0.10.1" }
+prost-build = { version = "0.10" }
+prost-wkt-build = "0.3.1"
+

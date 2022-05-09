@@ -77,7 +77,10 @@ pub fn read_segment(reader: &mut BufReader<File>) -> Result<Peek, ParseError> {
 
 // Also add the error handling
 // might be correct based on valve version
-pub fn read_varint <R>(reader: &mut BufReader<R>) -> Result<u32, i32>  where R: std::io::Read {
+pub fn read_varint<R>(reader: &mut BufReader<R>) -> Result<u32, i32>
+where
+    R: std::io::Read,
+{
     let mut count = 0;
     let mut result = 0 as u32;
     loop {
@@ -98,7 +101,10 @@ pub fn read_varint <R>(reader: &mut BufReader<R>) -> Result<u32, i32>  where R: 
     }
 }
 
-pub fn get_message <R>(reader: &mut BufReader<R>, size: u32, compressed: bool) -> Bytes where R: std::io::Read {
+pub fn get_message<R>(reader: &mut BufReader<R>, size: u32, compressed: bool) -> Bytes
+where
+    R: std::io::Read,
+{
     let mut message: Vec<u8, Global> = vec![0; size.try_into().unwrap()];
     reader.read_exact(&mut message).unwrap();
     if compressed {

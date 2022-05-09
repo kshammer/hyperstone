@@ -1,34 +1,36 @@
-use std::io::{BufReader, BufRead, Read, Seek};
+use std::io::{BufRead, BufReader, Read, Seek};
 
 use tracing::debug;
 
-use crate::byte_utils::{Peek, read_varint, get_message};
+use crate::byte_utils::{get_message, read_varint, Peek};
 
-
-
-pub fn parse_packet <R>(reader: &mut BufReader<R>) where R: Read, R:Seek {
-
-    let mut messages:Vec<Peek> = vec![];
+pub fn parse_packet<R>(reader: &mut BufReader<R>)
+where
+    R: Read,
+    R: Seek,
+{
+    let mut messages: Vec<Peek> = vec![];
     while reader.has_data_left().unwrap() {
         messages.push(read_packet_segment(reader));
-        // next sort messages based on demo_packet.go 
+        // next sort messages based on demo_packet.go
     }
-
-
 }
 
-pub fn match_packet(){
+pub fn match_packet() {
     // network base types + dota_netmessages + usermessages + game events + dota_usermessages
-    // missing 72 look to update 
+    // missing 72 look to update
     // missing 152
-    // 600 cases =( 
+    // 600 cases =(
 }
 
-
-pub fn read_packet_segment <R>(reader: &mut BufReader<R>) -> Peek  where R: Read, R: Seek  {
+pub fn read_packet_segment<R>(reader: &mut BufReader<R>) -> Peek
+where
+    R: Read,
+    R: Seek,
+{
     let mut kind = read_varint(reader).unwrap(); // might need to be smaller t := int32(r.readUBitVar())
     debug!("kind {}", kind);
-    
+
     let size = read_varint(reader).unwrap();
     debug!("size {}", size);
 
