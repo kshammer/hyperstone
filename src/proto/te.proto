@@ -1,5 +1,6 @@
 syntax = "proto2";
-package hyperstone.te;
+
+package hyperstone;
 
 import "networkbasetypes.proto";
 
@@ -13,7 +14,6 @@ enum ETEProtobufIds {
 	TE_BeamEntsId = 403;
 	TE_BeamPointsId = 404;
 	TE_BeamRingId = 405;
-	TE_BreakModelId = 406;
 	TE_BSPDecalId = 407;
 	TE_BubblesId = 408;
 	TE_BubbleTrailId = 409;
@@ -37,8 +37,8 @@ enum ETEProtobufIds {
 }
 
 message CMsgTEArmorRicochet {
-	optional networkbasetypes.CMsgVector pos = 1;
-	optional networkbasetypes.CMsgVector dir = 2;
+	optional CMsgVector pos = 1;
+	optional CMsgVector dir = 2;
 }
 
 message CMsgTEBaseBeam {
@@ -60,8 +60,8 @@ message CMsgTEBeamEntPoint {
 	optional CMsgTEBaseBeam base = 1;
 	optional uint32 startentity = 2;
 	optional uint32 endentity = 3;
-	optional networkbasetypes.CMsgVector start = 4;
-	optional networkbasetypes.CMsgVector end = 5;
+	optional CMsgVector start = 4;
+	optional CMsgVector end = 5;
 }
 
 message CMsgTEBeamEnts {
@@ -72,8 +72,8 @@ message CMsgTEBeamEnts {
 
 message CMsgTEBeamPoints {
 	optional CMsgTEBaseBeam base = 1;
-	optional networkbasetypes.CMsgVector start = 2;
-	optional networkbasetypes.CMsgVector end = 3;
+	optional CMsgVector start = 2;
+	optional CMsgVector end = 3;
 }
 
 message CMsgTEBeamRing {
@@ -82,55 +82,43 @@ message CMsgTEBeamRing {
 	optional uint32 endentity = 3;
 }
 
-message CMsgTEBreakModel {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgQAngle angles = 2;
-	optional networkbasetypes.CMsgVector size = 3;
-	optional networkbasetypes.CMsgVector velocity = 4;
-	optional uint32 randomization = 5;
-	optional fixed64 modelindex = 6;
-	optional uint32 count = 7;
-	optional float time = 8;
-	optional uint32 flags = 9;
-}
-
 message CMsgTEBSPDecal {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgVector normal = 2;
-	optional networkbasetypes.CMsgVector saxis = 3;
+	optional CMsgVector origin = 1;
+	optional CMsgVector normal = 2;
+	optional CMsgVector saxis = 3;
 	optional uint32 entity = 4;
 	optional uint32 index = 5;
 }
 
 message CMsgTEBubbles {
-	optional networkbasetypes.CMsgVector mins = 1;
-	optional networkbasetypes.CMsgVector maxs = 2;
+	optional CMsgVector mins = 1;
+	optional CMsgVector maxs = 2;
 	optional float height = 3;
 	optional uint32 count = 4;
 	optional float speed = 5;
 }
 
 message CMsgTEBubbleTrail {
-	optional networkbasetypes.CMsgVector mins = 1;
-	optional networkbasetypes.CMsgVector maxs = 2;
+	optional CMsgVector mins = 1;
+	optional CMsgVector maxs = 2;
 	optional float waterz = 3;
 	optional uint32 count = 4;
 	optional float speed = 5;
 }
 
 message CMsgTEDecal {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgVector start = 2;
+	optional CMsgVector origin = 1;
+	optional CMsgVector start = 2;
 	optional uint32 entity = 3;
 	optional uint32 hitbox = 4;
 	optional uint32 index = 5;
 }
 
 message CMsgEffectData {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgVector start = 2;
-	optional networkbasetypes.CMsgVector normal = 3;
-	optional networkbasetypes.CMsgQAngle angles = 4;
+	optional CMsgVector origin = 1;
+	optional CMsgVector start = 2;
+	optional CMsgVector normal = 3;
+	optional CMsgQAngle angles = 4;
 	optional fixed32 entity = 5;
 	optional fixed32 otherentity = 6;
 	optional float scale = 7;
@@ -153,8 +141,8 @@ message CMsgTEEffectDispatch {
 }
 
 message CMsgTEEnergySplash {
-	optional networkbasetypes.CMsgVector pos = 1;
-	optional networkbasetypes.CMsgVector dir = 2;
+	optional CMsgVector pos = 1;
+	optional CMsgVector dir = 2;
 	optional bool explosive = 3;
 }
 
@@ -165,10 +153,10 @@ message CMsgTEFizz {
 }
 
 message CMsgTEShatterSurface {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgQAngle angles = 2;
-	optional networkbasetypes.CMsgVector force = 3;
-	optional networkbasetypes.CMsgVector forcepos = 4;
+	optional CMsgVector origin = 1;
+	optional CMsgQAngle angles = 2;
+	optional CMsgVector force = 3;
+	optional CMsgVector forcepos = 4;
 	optional float width = 5;
 	optional float height = 6;
 	optional float shardsize = 7;
@@ -178,96 +166,98 @@ message CMsgTEShatterSurface {
 }
 
 message CMsgTEGlowSprite {
-	optional networkbasetypes.CMsgVector origin = 1;
+	optional CMsgVector origin = 1;
 	optional float scale = 2;
 	optional float life = 3;
 	optional uint32 brightness = 4;
 }
 
 message CMsgTEImpact {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgVector normal = 2;
+	optional CMsgVector origin = 1;
+	optional CMsgVector normal = 2;
 	optional uint32 type = 3;
 }
 
 message CMsgTEMuzzleFlash {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgQAngle angles = 2;
+	optional CMsgVector origin = 1;
+	optional CMsgQAngle angles = 2;
 	optional float scale = 3;
 	optional uint32 type = 4;
 }
 
 message CMsgTEBloodStream {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgVector direction = 2;
+	optional CMsgVector origin = 1;
+	optional CMsgVector direction = 2;
 	optional fixed32 color = 3;
 	optional uint32 amount = 4;
 }
 
 message CMsgTEExplosion {
-	optional networkbasetypes.CMsgVector origin = 1;
+	optional CMsgVector origin = 1;
 	optional uint32 framerate = 2;
 	optional uint32 flags = 3;
-	optional networkbasetypes.CMsgVector normal = 4;
+	optional CMsgVector normal = 4;
 	optional uint32 materialtype = 5;
 	optional uint32 radius = 6;
 	optional uint32 magnitude = 7;
 	optional float scale = 8;
 	optional bool affect_ragdolls = 9;
+	optional string effect_name = 10;
+	optional uint32 explosion_type = 11;
 }
 
 message CMsgTEDust {
-	optional networkbasetypes.CMsgVector origin = 1;
+	optional CMsgVector origin = 1;
 	optional float size = 2;
 	optional float speed = 3;
-	optional networkbasetypes.CMsgVector direction = 4;
+	optional CMsgVector direction = 4;
 }
 
 message CMsgTELargeFunnel {
-	optional networkbasetypes.CMsgVector origin = 1;
+	optional CMsgVector origin = 1;
 	optional uint32 reversed = 2;
 }
 
 message CMsgTESparks {
-	optional networkbasetypes.CMsgVector origin = 1;
+	optional CMsgVector origin = 1;
 	optional uint32 magnitude = 2;
 	optional uint32 length = 3;
-	optional networkbasetypes.CMsgVector direction = 4;
+	optional CMsgVector direction = 4;
 }
 
 message CMsgTEPhysicsProp {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgVector velocity = 2;
-	optional networkbasetypes.CMsgQAngle angles = 3;
+	optional CMsgVector origin = 1;
+	optional CMsgVector velocity = 2;
+	optional CMsgQAngle angles = 3;
 	optional fixed32 skin = 4;
 	optional uint32 flags = 5;
 	optional uint32 effects = 6;
 	optional fixed32 color = 7;
 	optional fixed64 modelindex = 8;
-	optional uint32 breakmodelsnottomake = 9;
+	optional uint32 unused_breakmodelsnottomake = 9;
 	optional float scale = 10;
 }
 
 message CMsgTEPlayerDecal {
-	optional networkbasetypes.CMsgVector origin = 1;
+	optional CMsgVector origin = 1;
 	optional uint32 player = 2;
 	optional uint32 entity = 3;
 }
 
 message CMsgTEProjectedDecal {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgQAngle angles = 2;
+	optional CMsgVector origin = 1;
+	optional CMsgQAngle angles = 2;
 	optional uint32 index = 3;
 	optional float distance = 4;
 }
 
 message CMsgTESmoke {
-	optional networkbasetypes.CMsgVector origin = 1;
+	optional CMsgVector origin = 1;
 	optional float scale = 2;
 }
 
 message CMsgTEWorldDecal {
-	optional networkbasetypes.CMsgVector origin = 1;
-	optional networkbasetypes.CMsgVector normal = 2;
+	optional CMsgVector origin = 1;
+	optional CMsgVector normal = 2;
 	optional uint32 index = 3;
 }

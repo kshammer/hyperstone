@@ -1,5 +1,8 @@
 syntax = "proto2";
-package hyperstone.gameevents; 
+
+package hyperstone;
+
+import "networkbasetypes.proto";
 
 option optimize_for = SPEED;
 option cc_generic_services = false;
@@ -18,6 +21,42 @@ enum EBaseGameEvents {
 	GE_SosSetSoundEventParams = 210;
 	GE_SosSetLibraryStackFields = 211;
 	GE_SosStopSoundEventHash = 212;
+}
+
+message CMsgVDebugGameSessionIDEvent {
+	optional int32 clientid = 1;
+	optional string gamesessionid = 2;
+}
+
+message CMsgPlaceDecalEvent {
+	optional CMsgVector position = 1;
+	optional CMsgVector normal = 2;
+	optional CMsgVector saxis = 3;
+	optional uint32 decalmaterialindex = 4;
+	optional uint32 flags = 5;
+	optional fixed32 color = 6;
+	optional float width = 7;
+	optional float height = 8;
+	optional float depth = 9;
+	optional uint32 entityhandleindex = 10;
+	optional fixed32 skeletoninstancehash = 11;
+	optional int32 boneindex = 12;
+	optional bool translucenthit = 13;
+	optional bool is_adjacent = 14;
+}
+
+message CMsgClearWorldDecalsEvent {
+	optional uint32 flagstoclear = 1;
+}
+
+message CMsgClearEntityDecalsEvent {
+	optional uint32 flagstoclear = 1;
+}
+
+message CMsgClearDecalsForSkeletonInstanceEvent {
+	optional uint32 flagstoclear = 1;
+	optional uint32 entityhandleindex = 2;
+	optional uint32 skeletoninstancehash = 3;
 }
 
 message CMsgSource1LegacyGameEventList {
@@ -78,4 +117,9 @@ message CMsgSosStopSoundEventHash {
 message CMsgSosSetSoundEventParams {
 	optional int32 soundevent_guid = 1;
 	optional bytes packed_params = 5;
+}
+
+message CMsgSosSetLibraryStackFields {
+	optional fixed32 stack_hash = 1;
+	optional bytes packed_fields = 5;
 }

@@ -11,9 +11,7 @@ use std::time::Instant;
 use tracing::debug;
 use tracing::info;
 mod protos {
-    include!(concat!(env!("OUT_DIR"), "/hyperstone.demo.rs"));
-    include!(concat!(env!("OUT_DIR"), "/hyperstone.dota_netmessages.rs"));
-    include!(concat!(env!("OUT_DIR"), "/hyperstone.netmessages.rs"));
+    include!(concat!(env!("OUT_DIR"), "/hyperstone.rs"));
 }
 mod byte_utils;
 mod demo_proto;

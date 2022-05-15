@@ -1,15 +1,14 @@
 use byteorder::{ByteOrder, LittleEndian};
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 use prost::Message;
-use prost_types::Any;
 use tracing::{debug, info};
 
 use crate::{
     byte_utils,
     protos::{
-        CDemoClassInfo, CDemoCustomData, CDemoCustomDataCallbacks, CDemoFileHeader, CDemoFileInfo,
-        CDemoFullPacket, CDemoPacket, CDemoSaveGame, CDemoSendTables, CDemoSpawnGroups,
-        CDemoStringTables, CDemoSyncTick, CDemoUserCmd, EDemoCommands, self, 
+        self, CDemoClassInfo, CDemoCustomData, CDemoCustomDataCallbacks, CDemoFileHeader,
+        CDemoFileInfo, CDemoFullPacket, CDemoPacket, CDemoSaveGame, CDemoSendTables,
+        CDemoSpawnGroups, CDemoStringTables, CDemoSyncTick, CDemoUserCmd, EDemoCommands,
     },
 };
 use std::{
@@ -50,19 +49,14 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
             debug!("Send tables");
             let send_tables = protos::CDemoSendTables::decode(peek.message).unwrap();
             let cool_bytes = Bytes::from(send_tables.data.unwrap());
-            let message = protos::CsvcMsgFlattenedSerializer::decode(cool_bytes).unwrap();
-            // let cap = reader.capacity();
-            // info!("Table size {}", cap);
-            // let buf_size = byte_utils::read_varint(&mut reader).unwrap();
-            // let mut buf: Vec<u8, Global> = vec![0; buf_size.try_into().unwrap()];
-            // reader.read_exact(&mut buf);
-            // let cool = Any {
-            //     type_url: "path/hyperstone.dota_netmessages.CsvcMsgFlattenedSerializer".to_string(),
-            //     value: buf
-            // };
-            // let mut cool_buf: Vec<u8> = vec![];
-            // docs don't explain how to deserialize https://docs.rs/prost-types/latest/prost_types/struct.Any.html
-            // look into this https://github.com/fdeantoni/prost-wkt
+            // read one varint off the bytes
+            let mut reader = BufReader::new(cool_bytes.reader());
+            let size = byte_utils::read_varint(&mut reader).unwrap();
+            let pog = byte_utils::get_message(&mut reader, size, false);
+            let message = protos::CsvcMsgFlattenedSerializer::decode(pog).unwrap();
+            // for symbol in message.symbols {
+            //    println!("symbol {}", symbol);
+            // }
         }
         EDemoCommands::DemClassInfo => {
             debug!("Class info");
@@ -133,11 +127,8 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         EDemoCommands::DemMax => {
             debug!("Max");
         }
-        EDemoCommands::DemIsCompressedS1 => {
-            debug!("Compressed s1");
-        }
-        EDemoCommands::DemIsCompressedS2 => {
-            debug!("Compressed s2");
+        EDemoCommands::DemIsCompressed => {
+            debug!("Compressed");
         }
     }
     return 1;
@@ -214,6 +205,5 @@ pub enum DemoMessage {
     DemSaveGame(CDemoSaveGame),
     DemSpawnGroups(CDemoSpawnGroups),
     DemMax(),
-    DemIsCompressedS1(),
-    DemIsCompressedS2(),
+    DemIsCompressed(),
 }

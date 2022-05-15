@@ -28,7 +28,7 @@ pub fn read_segment(reader: &mut BufReader<File>) -> Result<Peek, ParseError> {
             })
         }
     };
-    let compressed = if kind & EDemoCommands::DemIsCompressedS2 as u32 == 0 {
+    let compressed = if kind & EDemoCommands::DemIsCompressed as u32 == 0 {
         false
     } else {
         true
@@ -37,7 +37,7 @@ pub fn read_segment(reader: &mut BufReader<File>) -> Result<Peek, ParseError> {
 
     // deal with compression
     kind = if compressed {
-        kind & !(EDemoCommands::DemIsCompressedS2 as u32)
+        kind & !(EDemoCommands::DemIsCompressed as u32)
     } else {
         kind
     };
