@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek};
 use tracing::debug;
 
-use crate::protos::EDemoCommands;
+use hyperstone_proto::dota_proto::*;
 
 pub struct Peek {
     pub _tick: u32,

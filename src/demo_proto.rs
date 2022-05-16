@@ -1,15 +1,11 @@
 use byteorder::{ByteOrder, LittleEndian};
 use bytes::{Buf, Bytes};
-use prost::Message;
 use tracing::{debug, info};
+use hyperstone_proto::dota_proto::*;
+use prost::Message;
 
 use crate::{
-    byte_utils,
-    protos::{
-        self, CDemoClassInfo, CDemoCustomData, CDemoCustomDataCallbacks, CDemoFileHeader,
-        CDemoFileInfo, CDemoFullPacket, CDemoPacket, CDemoSaveGame, CDemoSendTables,
-        CDemoSpawnGroups, CDemoStringTables, CDemoSyncTick, CDemoUserCmd, EDemoCommands,
-    },
+    byte_utils, packet_proto::parse_packet,
 };
 use std::{
     alloc::Global,
@@ -33,12 +29,12 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         EDemoCommands::DemFileHeader => {
             debug!("Header");
             // not a lot of interesting information in here, mostly meta data about the demo file.
-            // let header = protos::CDemoFileHeader::decode(peek.message).unwrap();
+            // let header =  CDemoFileHeader::decode(peek.message).unwrap();
         }
         EDemoCommands::DemFileInfo => {
             debug!("File Info");
             // ref get_file_info for how to investigate, information about players and meta data about the match.
-            // let file_info = protos::CDemoFileInfo::decode(peek.message).unwrap();
+            // let file_info =  CDemoFileInfo::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSyncTick => {
             debug!("Sync Tick");
@@ -47,20 +43,20 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         EDemoCommands::DemSendTables => {
             // something to be parsed
             debug!("Send tables");
-            let send_tables = protos::CDemoSendTables::decode(peek.message).unwrap();
+            let send_tables = CDemoSendTables::decode(peek.message).unwrap();
             let cool_bytes = Bytes::from(send_tables.data.unwrap());
             // read one varint off the bytes
             let mut reader = BufReader::new(cool_bytes.reader());
             let size = byte_utils::read_varint(&mut reader).unwrap();
             let pog = byte_utils::get_message(&mut reader, size, false);
-            let message = protos::CsvcMsgFlattenedSerializer::decode(pog).unwrap();
+            let message = CsvcMsgFlattenedSerializer::decode(pog).unwrap();
             // for symbol in message.symbols {
-            //    println!("symbol {}", symbol);
+            //    println!("{}", symbol);
             // }
         }
         EDemoCommands::DemClassInfo => {
             debug!("Class info");
-            // let class_info = protos::CDemoClassInfo::decode(peek.message).unwrap();
+            // let class_info =  CDemoClassInfo::decode(peek.message).unwrap();
             // let holder = class_info.classes;
             // for cool in holder {
             //     info!("Network name {}", cool.network_name());
@@ -77,7 +73,7 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemStringTables => {
             debug!("String tables");
-            // let string_tables = protos::CDemoStringTables::decode(peek.message).unwrap();
+            // let string_tables =  CDemoStringTables::decode(peek.message).unwrap();
             // let holder = string_tables.tables;
             // for hold in holder {
             //     info!("Table name {}", hold.table_name());
@@ -90,7 +86,13 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemPacket => {
             debug!("Packet");
-            let dem_packet = protos::CDemoPacket::decode(peek.message).unwrap();
+            let dem_packet =  CDemoPacket::decode(peek.message).unwrap();
+            let cool_bytes = Bytes::from(dem_packet.data.unwrap());
+            let mut reader = BufReader::new(cool_bytes.reader());
+            // parse_packet(&mut reader);
+
+
+
         }
         EDemoCommands::DemSignonPacket => {
             // no proto
@@ -98,31 +100,31 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemConsoleCmd => {
             debug!("Console command");
-            let console_command = protos::CDemoConsoleCmd::decode(peek.message).unwrap();
+            let console_command =  CDemoConsoleCmd::decode(peek.message).unwrap();
         }
         EDemoCommands::DemCustomData => {
             debug!("Custom Data");
-            let custom_data = protos::CDemoCustomData::decode(peek.message).unwrap();
+            let custom_data =  CDemoCustomData::decode(peek.message).unwrap();
         }
         EDemoCommands::DemCustomDataCallbacks => {
             debug!("Custom data call back");
-            let callback = protos::CDemoCustomDataCallbacks::decode(peek.message).unwrap();
+            let callback =  CDemoCustomDataCallbacks::decode(peek.message).unwrap();
         }
         EDemoCommands::DemUserCmd => {
             debug!("User command");
-            let user_command = protos::CDemoUserCmd::decode(peek.message).unwrap();
+            let user_command =  CDemoUserCmd::decode(peek.message).unwrap();
         }
         EDemoCommands::DemFullPacket => {
             debug!("Full packet");
-            let full_packet = protos::CDemoFullPacket::decode(peek.message).unwrap();
+            let full_packet =  CDemoFullPacket::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSaveGame => {
             debug!("Save game");
-            let save_game = protos::CDemoSaveGame::decode(peek.message).unwrap();
+            let save_game =  CDemoSaveGame::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSpawnGroups => {
             debug!("Spawn groups");
-            let spawn_groups = protos::CDemoSpawnGroups::decode(peek.message).unwrap();
+            let spawn_groups =  CDemoSpawnGroups::decode(peek.message).unwrap();
         }
         EDemoCommands::DemMax => {
             debug!("Max");
@@ -151,7 +153,7 @@ pub fn get_file_info(reader: &mut BufReader<File>) -> u64 {
         }
     };
 
-    let file_info = protos::CDemoFileInfo::decode(peek.message).unwrap();
+    let file_info = CDemoFileInfo::decode(peek.message).unwrap();
 
     debug!("Playback time {}", file_info.playback_time.unwrap());
     debug!("Playback ticks {}", file_info.playback_ticks.unwrap());
@@ -185,25 +187,25 @@ pub fn get_file_info(reader: &mut BufReader<File>) -> u64 {
     current_pos
 }
 
-#[derive(Clone, Debug)]
-pub enum DemoMessage {
-    DemError(),
-    DemStop(),
-    DemFileHeader(CDemoFileHeader),
-    DemFileInfo(CDemoFileInfo),
-    DemSyncTick(CDemoSyncTick),
-    DemSendTables(CDemoSendTables),
-    DemClassInfo(CDemoClassInfo),
-    DemStringTables(CDemoStringTables),
-    DemPacket(CDemoPacket),
-    DemSignonPacket(),
-    DemConsoleCmd(),
-    DemCustomData(CDemoCustomData),
-    DemCustomDataCallbacks(CDemoCustomDataCallbacks),
-    DemUserCmd(CDemoUserCmd),
-    DemFullPacket(CDemoFullPacket),
-    DemSaveGame(CDemoSaveGame),
-    DemSpawnGroups(CDemoSpawnGroups),
-    DemMax(),
-    DemIsCompressed(),
-}
+// #[derive(Clone, Debug)]
+// pub enum DemoMessage {
+//     DemError(),
+//     DemStop(),
+//     DemFileHeader(CDemoFileHeader),
+//     DemFileInfo(CDemoFileInfo),
+//     DemSyncTick(CDemoSyncTick),
+//     DemSendTables(CDemoSendTables),
+//     DemClassInfo(CDemoClassInfo),
+//     DemStringTables(CDemoStringTables),
+//     DemPacket(CDemoPacket),
+//     DemSignonPacket(),
+//     DemConsoleCmd(),
+//     DemCustomData(CDemoCustomData),
+//     DemCustomDataCallbacks(CDemoCustomDataCallbacks),
+//     DemUserCmd(CDemoUserCmd),
+//     DemFullPacket(CDemoFullPacket),
+//     DemSaveGame(CDemoSaveGame),
+//     DemSpawnGroups(CDemoSpawnGroups),
+//     DemMax(),
+//     DemIsCompressed(),
+// }

@@ -1,5 +1,6 @@
 #![feature(allocator_api)]
 #![feature(buf_read_has_data_left)]
+#![feature(exclusive_range_pattern)]
 use std::alloc::Global;
 use std::fs::File;
 use std::io::BufReader;
@@ -10,9 +11,7 @@ use std::str;
 use std::time::Instant;
 use tracing::debug;
 use tracing::info;
-mod protos {
-    include!(concat!(env!("OUT_DIR"), "/hyperstone.rs"));
-}
+
 mod byte_utils;
 mod demo_proto;
 mod packet_proto;
