@@ -20,7 +20,7 @@ use crate::demo_proto::parse;
 
 fn main() {
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(tracing::Level::DEBUG)
         .init();
     let f = File::open("dota.dem").unwrap();
     let mut reader = BufReader::new(f);

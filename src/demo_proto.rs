@@ -89,9 +89,7 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
             let dem_packet =  CDemoPacket::decode(peek.message).unwrap();
             let cool_bytes = Bytes::from(dem_packet.data.unwrap());
             let mut reader = BufReader::new(cool_bytes.reader());
-            // parse_packet(&mut reader);
-
-
+            parse_packet(&mut reader);
 
         }
         EDemoCommands::DemSignonPacket => {
@@ -186,26 +184,3 @@ pub fn get_file_info(reader: &mut BufReader<File>) -> u64 {
 
     current_pos
 }
-
-// #[derive(Clone, Debug)]
-// pub enum DemoMessage {
-//     DemError(),
-//     DemStop(),
-//     DemFileHeader(CDemoFileHeader),
-//     DemFileInfo(CDemoFileInfo),
-//     DemSyncTick(CDemoSyncTick),
-//     DemSendTables(CDemoSendTables),
-//     DemClassInfo(CDemoClassInfo),
-//     DemStringTables(CDemoStringTables),
-//     DemPacket(CDemoPacket),
-//     DemSignonPacket(),
-//     DemConsoleCmd(),
-//     DemCustomData(CDemoCustomData),
-//     DemCustomDataCallbacks(CDemoCustomDataCallbacks),
-//     DemUserCmd(CDemoUserCmd),
-//     DemFullPacket(CDemoFullPacket),
-//     DemSaveGame(CDemoSaveGame),
-//     DemSpawnGroups(CDemoSpawnGroups),
-//     DemMax(),
-//     DemIsCompressed(),
-// }
