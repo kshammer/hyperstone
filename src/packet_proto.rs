@@ -1,8 +1,13 @@
-use std::io::{BufRead, BufReader, Read, Seek};
+use std::{
+    alloc::Global,
+    io::{BufRead, BufReader, Read, Seek},
+};
 
 use hyperstone_proto::dota_proto::*;
 
-use tracing::debug;
+use bitreader::BitReader;
+
+use tracing::{debug, info};
 
 use crate::byte_utils::{get_message, read_varint, Peek};
 
@@ -16,24 +21,63 @@ where
         // next sort messages based on demo_packet.go OMEGALUL
     }
     for message in messages {
-
-        decode_packet(message); 
-        
+        decode_packet(message);
     }
-
-
 }
 
-// pub fn read_bits<R>(reader: &mut BufReader<R>) -> u32 where R:Read {
+pub fn read_bits<R>(reader: &mut BufReader<R>) -> u32
+where
+    R: Read,
+{
+    // each bit chunk is taken from a byte
+    let mut varintbuf: Vec<u8, Global> = vec![0; 1];
+    reader.read_exact(&mut varintbuf).unwrap();
+    info!("Var buf {:?}", varintbuf);
+    let mut bit_reader = BitReader::new(&varintbuf);
 
-// }
+    // this is little endian 
+
+    let ret = bit_reader.read_u8(6).unwrap();
+
+    info!("ret {}", ret);
+
+    let cool_ret = ret & 0x30;
+
+    info!("Cool ret {}", cool_ret); 
+
+    match cool_ret {
+        16 => {
+            let mut byte_buf: Vec<u8, Global> = vec![0; 1];
+            reader.read_exact(&mut byte_buf).unwrap();
+            let mut bit_reader = BitReader::new(&byte_buf);
+            return ((ret & 15) | (bit_reader.read_u8(4).unwrap()) << 4).into();
+        }
+        32 => {
+            let mut byte_buf: Vec<u8, Global> = vec![0; 1];
+            reader.read_exact(&mut byte_buf).unwrap();
+            let mut bit_reader = BitReader::new(&byte_buf);
+            return ((ret & 15) | (bit_reader.read_u8(8).unwrap()) << 4).into();
+        }
+        48 => {
+            let mut byte_buf: Vec<u8, Global> = vec![0; 4];
+            reader.read_exact(&mut byte_buf).unwrap();
+            info!("byte buf 48 {:?}", byte_buf); 
+            let mut bit_reader = BitReader::new(&byte_buf);
+            let cool = bit_reader.peek_u32(28).unwrap();
+            info!("Cool {}", cool);
+            return ((ret & 15) as u32 | (bit_reader.read_u32(28).unwrap()) << 4).into();
+        }
+        u8::MIN..u8::MAX => todo!(),
+        u8::MAX => todo!(),
+    }
+}
 
 pub fn read_packet_segment<R>(reader: &mut BufReader<R>) -> Peek
 where
     R: Read,
 {
-    let mut kind = read_varint(reader).unwrap(); // might need to be smaller t := int32(r.readUBitVar())
-    debug!("kind {}", kind);
+    let kind = read_bits(reader); // might need to be smaller t := int32(r.readUBitVar())
+    info!("kind {}", kind);
 
     let size = read_varint(reader).unwrap();
     debug!("size {}", size);
@@ -49,14 +93,14 @@ where
     }
 }
 
-pub fn decode_packet(message: Peek ) {
+pub fn decode_packet(message: Peek) {
+    println!("Cool ass packet");
+    let message_type = message.message_type as i32;
 
-    println!("Cool ass packet"); 
-    let message_type = message.message_type as i32; 
-    match message_type { 
+    match message_type {
         0..14 => {
             let net_message = NetMessages::from_i32(message_type).unwrap();
-            match net_message{
+            match net_message {
                 NetMessages::NetNop => todo!(),
                 NetMessages::NetDisconnect => todo!(),
                 NetMessages::NetSplitScreenUser => todo!(),
@@ -70,10 +114,10 @@ pub fn decode_packet(message: Peek ) {
                 NetMessages::NetSpawnGroupUnload => todo!(),
                 NetMessages::NetSpawnGroupLoadCompleted => todo!(),
             }
-        },
-        40..73 => { 
-            let dota_message = SvcMessages::from_i32(message_type).unwrap(); 
-            match dota_message{
+        }
+        40..73 => {
+            let dota_message = SvcMessages::from_i32(message_type).unwrap();
+            match dota_message {
                 SvcMessages::SvcServerInfo => todo!(),
                 SvcMessages::SvcFlattenedSerializer => todo!(),
                 SvcMessages::SvcClassInfo => todo!(),
@@ -102,7 +146,7 @@ pub fn decode_packet(message: Peek ) {
                 SvcMessages::SvcRconServerDetails => todo!(),
                 SvcMessages::SvcUserMessage => todo!(),
             }
-        },
+        }
         101..153 => {
             let base_user_message = EBaseUserMessages::from_i32(message_type).unwrap();
             match base_user_message {
@@ -145,9 +189,9 @@ pub fn decode_packet(message: Peek ) {
                 EBaseUserMessages::UmCommandQueueState => todo!(),
                 EBaseUserMessages::UmMaxBase => todo!(),
             }
-        },
+        }
         200..213 => {
-            let game_event = EBaseGameEvents::from_i32(message_type).unwrap(); 
+            let game_event = EBaseGameEvents::from_i32(message_type).unwrap();
             match game_event {
                 EBaseGameEvents::GeVDebugGameSessionIdEvent => todo!(),
                 EBaseGameEvents::GePlaceDecalEvent => todo!(),
@@ -163,7 +207,7 @@ pub fn decode_packet(message: Peek ) {
                 EBaseGameEvents::GeSosSetLibraryStackFields => todo!(),
                 EBaseGameEvents::GeSosStopSoundEventHash => todo!(),
             }
-        },
+        }
         464..613 => {
             let dota_user_message = EDotaUserMessages::from_i32(message_type).unwrap();
             match dota_user_message {
@@ -315,10 +359,7 @@ pub fn decode_packet(message: Peek ) {
                 EDotaUserMessages::DotaUmContextualTip => todo!(),
                 EDotaUserMessages::DotaUmChatMessage => todo!(),
             }
-        },
+        }
         i32::MIN..=-1_i32 | 13_i32..=i32::MAX => todo!(),
-       
-
     }
 }
-

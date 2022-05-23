@@ -1,12 +1,10 @@
 use byteorder::{ByteOrder, LittleEndian};
 use bytes::{Buf, Bytes};
-use tracing::{debug, info};
 use hyperstone_proto::dota_proto::*;
 use prost::Message;
+use tracing::{debug, info};
 
-use crate::{
-    byte_utils, packet_proto::parse_packet,
-};
+use crate::{byte_utils, packet_proto::parse_packet};
 use std::{
     alloc::Global,
     fs::File,
@@ -86,11 +84,10 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemPacket => {
             debug!("Packet");
-            let dem_packet =  CDemoPacket::decode(peek.message).unwrap();
+            let dem_packet = CDemoPacket::decode(peek.message).unwrap();
             let cool_bytes = Bytes::from(dem_packet.data.unwrap());
             let mut reader = BufReader::new(cool_bytes.reader());
             parse_packet(&mut reader);
-
         }
         EDemoCommands::DemSignonPacket => {
             // no proto
@@ -98,31 +95,31 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemConsoleCmd => {
             debug!("Console command");
-            let console_command =  CDemoConsoleCmd::decode(peek.message).unwrap();
+            let console_command = CDemoConsoleCmd::decode(peek.message).unwrap();
         }
         EDemoCommands::DemCustomData => {
             debug!("Custom Data");
-            let custom_data =  CDemoCustomData::decode(peek.message).unwrap();
+            let custom_data = CDemoCustomData::decode(peek.message).unwrap();
         }
         EDemoCommands::DemCustomDataCallbacks => {
             debug!("Custom data call back");
-            let callback =  CDemoCustomDataCallbacks::decode(peek.message).unwrap();
+            let callback = CDemoCustomDataCallbacks::decode(peek.message).unwrap();
         }
         EDemoCommands::DemUserCmd => {
             debug!("User command");
-            let user_command =  CDemoUserCmd::decode(peek.message).unwrap();
+            let user_command = CDemoUserCmd::decode(peek.message).unwrap();
         }
         EDemoCommands::DemFullPacket => {
             debug!("Full packet");
-            let full_packet =  CDemoFullPacket::decode(peek.message).unwrap();
+            let full_packet = CDemoFullPacket::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSaveGame => {
             debug!("Save game");
-            let save_game =  CDemoSaveGame::decode(peek.message).unwrap();
+            let save_game = CDemoSaveGame::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSpawnGroups => {
             debug!("Spawn groups");
-            let spawn_groups =  CDemoSpawnGroups::decode(peek.message).unwrap();
+            let spawn_groups = CDemoSpawnGroups::decode(peek.message).unwrap();
         }
         EDemoCommands::DemMax => {
             debug!("Max");

@@ -11,6 +11,7 @@ prost = "0.10"
 prost-types = "0.10" 
 serde = { version = "1.0", features = ["derive"] }
 byteorder = "1.4.3" 
+bitreader = "0.3.6"
 snap = "1" 
 tracing = "0.1"
 tracing-subscriber = "0.2"
