@@ -101,6 +101,32 @@ where
     }
 }
 
+// Also add the error handling
+// might be correct based on valve version
+pub fn read_signvarint<R>(reader: &mut BufReader<R>) -> Result<i32, i32>
+where
+    R: std::io::Read,
+{
+    let mut count = 0;
+    let mut result = 0 as i32;
+    loop {
+        let mut varintbuf: Vec<u8, Global> = vec![0; 1];
+        match reader.read_exact(&mut varintbuf) {
+            Ok(_) => {
+                result |= (varintbuf[0] as i32 & 0x7f) << (7 * count);
+                count += 1;
+                if varintbuf[0] & 0x80 == 0 {
+                    return Ok(result.into());
+                }
+            }
+            Err(_) => {
+                debug!("End of file ");
+                return Err(-1);
+            }
+        }
+    }
+}
+
 pub fn get_message<R>(reader: &mut BufReader<R>, size: u32, compressed: bool) -> Bytes
 where
     R: std::io::Read,

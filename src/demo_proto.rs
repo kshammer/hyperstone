@@ -16,31 +16,32 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         Ok(peek) => peek,
         Err(_) => return -1,
     };
+    // info!("tick {}", peek._tick);
     let demo_command = EDemoCommands::from_i32(peek.message_type as i32).unwrap();
     match demo_command {
         EDemoCommands::DemError => {
-            debug!("Error tick");
+            info!("Error tick");
         }
         EDemoCommands::DemStop => {
-            debug!("End of Demo");
+            info!("End of Demo");
         }
         EDemoCommands::DemFileHeader => {
-            debug!("Header");
+            info!("File Header");
             // not a lot of interesting information in here, mostly meta data about the demo file.
             // let header =  CDemoFileHeader::decode(peek.message).unwrap();
         }
         EDemoCommands::DemFileInfo => {
-            debug!("File Info");
+            info!("File Info");
             // ref get_file_info for how to investigate, information about players and meta data about the match.
             // let file_info =  CDemoFileInfo::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSyncTick => {
-            debug!("Sync Tick");
+            info!("Sync Tick");
             // nothing interesting in here right now.
         }
         EDemoCommands::DemSendTables => {
             // something to be parsed
-            debug!("Send tables");
+            info!("Send tables");
             let send_tables = CDemoSendTables::decode(peek.message).unwrap();
             let cool_bytes = Bytes::from(send_tables.data.unwrap());
             // read one varint off the bytes
@@ -53,7 +54,7 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
             // }
         }
         EDemoCommands::DemClassInfo => {
-            debug!("Class info");
+            info!("Class info");
             // let class_info =  CDemoClassInfo::decode(peek.message).unwrap();
             // let holder = class_info.classes;
             // for cool in holder {
@@ -70,7 +71,7 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
             //  INFO hyperstone::demo_proto: Table name
         }
         EDemoCommands::DemStringTables => {
-            debug!("String tables");
+            info!("String tables");
             // let string_tables =  CDemoStringTables::decode(peek.message).unwrap();
             // let holder = string_tables.tables;
             // for hold in holder {
@@ -83,49 +84,52 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
             // }
         }
         EDemoCommands::DemPacket => {
-            debug!("Packet");
+            info!("Packet");
+            info!("tick {}", peek._tick);
+            info!("size {}", peek._size);
             let dem_packet = CDemoPacket::decode(peek.message).unwrap();
             let cool_bytes = Bytes::from(dem_packet.data.unwrap());
+            info!("{:?}", cool_bytes.len());
             let mut reader = BufReader::new(cool_bytes.reader());
             parse_packet(&mut reader);
         }
         EDemoCommands::DemSignonPacket => {
             // no proto
-            debug!("Signon packet");
+            info!("Signon packet");
         }
         EDemoCommands::DemConsoleCmd => {
-            debug!("Console command");
+            info!("Console command");
             let console_command = CDemoConsoleCmd::decode(peek.message).unwrap();
         }
         EDemoCommands::DemCustomData => {
-            debug!("Custom Data");
+            info!("Custom Data");
             let custom_data = CDemoCustomData::decode(peek.message).unwrap();
         }
         EDemoCommands::DemCustomDataCallbacks => {
-            debug!("Custom data call back");
+            info!("Custom data call back");
             let callback = CDemoCustomDataCallbacks::decode(peek.message).unwrap();
         }
         EDemoCommands::DemUserCmd => {
-            debug!("User command");
+            info!("User command");
             let user_command = CDemoUserCmd::decode(peek.message).unwrap();
         }
         EDemoCommands::DemFullPacket => {
-            debug!("Full packet");
+            info!("Full packet");
             let full_packet = CDemoFullPacket::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSaveGame => {
-            debug!("Save game");
+            info!("Save game");
             let save_game = CDemoSaveGame::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSpawnGroups => {
-            debug!("Spawn groups");
+            info!("Spawn groups");
             let spawn_groups = CDemoSpawnGroups::decode(peek.message).unwrap();
         }
         EDemoCommands::DemMax => {
-            debug!("Max");
+            info!("Max");
         }
         EDemoCommands::DemIsCompressed => {
-            debug!("Compressed");
+            info!("Compressed");
         }
     }
     return 1;

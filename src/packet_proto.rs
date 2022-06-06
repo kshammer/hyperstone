@@ -2,7 +2,8 @@ use std::{
     alloc::Global,
     io::{BufRead, BufReader, Read, Seek},
 };
-
+use std::io::Cursor;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use hyperstone_proto::dota_proto::*;
 
 use bitreader::BitReader;
@@ -35,9 +36,7 @@ where
     info!("Var buf {:?}", varintbuf);
     let mut bit_reader = BitReader::new(&varintbuf);
 
-    // this is little endian 
-
-    let ret = bit_reader.read_u8(6).unwrap();
+    let ret = bit_reader.read_u32(6).unwrap();
 
     info!("ret {}", ret);
 
@@ -50,25 +49,28 @@ where
             let mut byte_buf: Vec<u8, Global> = vec![0; 1];
             reader.read_exact(&mut byte_buf).unwrap();
             let mut bit_reader = BitReader::new(&byte_buf);
-            return ((ret & 15) | (bit_reader.read_u8(4).unwrap()) << 4).into();
+            return ((ret & 15) | (bit_reader.read_u32(4).unwrap()) << 4).into();
         }
         32 => {
             let mut byte_buf: Vec<u8, Global> = vec![0; 1];
             reader.read_exact(&mut byte_buf).unwrap();
             let mut bit_reader = BitReader::new(&byte_buf);
-            return ((ret & 15) | (bit_reader.read_u8(8).unwrap()) << 4).into();
+            return ((ret & 15) | (bit_reader.read_u32(8).unwrap()) << 4).into();
         }
         48 => {
+            // Big endian format is assumed when reading the multi-byte values. But the binary data is in little endian =) 
             let mut byte_buf: Vec<u8, Global> = vec![0; 4];
             reader.read_exact(&mut byte_buf).unwrap();
-            info!("byte buf 48 {:?}", byte_buf); 
+            byte_buf.reverse();
+            info!("buf {:?}", byte_buf);
+            // 32 bits and I only want the last 28 
             let mut bit_reader = BitReader::new(&byte_buf);
-            let cool = bit_reader.peek_u32(28).unwrap();
-            info!("Cool {}", cool);
+            let cool = bit_reader.peek_u32(28).unwrap() << 4;
+            info!("before {}", cool);
             return ((ret & 15) as u32 | (bit_reader.read_u32(28).unwrap()) << 4).into();
         }
-        u8::MIN..u8::MAX => todo!(),
-        u8::MAX => todo!(),
+        u32::MIN..u32::MAX => todo!(),
+        u32::MAX => todo!(),
     }
 }
 
@@ -80,7 +82,7 @@ where
     info!("kind {}", kind);
 
     let size = read_varint(reader).unwrap();
-    debug!("size {}", size);
+    info!("size {}", size);
 
     let message = get_message(reader, size, false);
 
