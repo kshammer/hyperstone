@@ -1,13 +1,9 @@
 use std::{
-    alloc::Global,
     io::{BufRead, BufReader, Read, Seek},
 };
-use std::io::Cursor;
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use hyperstone_proto::dota_proto::*;
 
-use bitreader::BitReader;
-
+use bitstream_io::{BitRead, BitReader, LittleEndian};
 use tracing::{debug, info};
 
 use crate::byte_utils::{get_message, read_varint, Peek};
@@ -31,14 +27,11 @@ where
     R: Read,
 {
     // each bit chunk is taken from a byte
-    let mut varintbuf: Vec<u8, Global> = vec![0; 1];
-    reader.read_exact(&mut varintbuf).unwrap();
-    info!("Var buf {:?}", varintbuf);
-    let mut bit_reader = BitReader::new(&varintbuf);
+    let mut r = BitReader::endian(reader, LittleEndian);
 
-    let ret = bit_reader.read_u32(6).unwrap();
+    let ret = r.read::<u32>(6).unwrap();
 
-    info!("ret {}", ret);
+    info!("ret {}", ret); 
 
     let cool_ret = ret & 0x30;
 
@@ -46,28 +39,14 @@ where
 
     match cool_ret {
         16 => {
-            let mut byte_buf: Vec<u8, Global> = vec![0; 1];
-            reader.read_exact(&mut byte_buf).unwrap();
-            let mut bit_reader = BitReader::new(&byte_buf);
-            return ((ret & 15) | (bit_reader.read_u32(4).unwrap()) << 4).into();
+            return (ret & 15) | (r.read::<u32>(4).unwrap() << 4); 
         }
         32 => {
-            let mut byte_buf: Vec<u8, Global> = vec![0; 1];
-            reader.read_exact(&mut byte_buf).unwrap();
-            let mut bit_reader = BitReader::new(&byte_buf);
-            return ((ret & 15) | (bit_reader.read_u32(8).unwrap()) << 4).into();
+            return (ret & 15) | (r.read::<u32>(8).unwrap() << 4); 
         }
         48 => {
-            // Big endian format is assumed when reading the multi-byte values. But the binary data is in little endian =) 
-            let mut byte_buf: Vec<u8, Global> = vec![0; 4];
-            reader.read_exact(&mut byte_buf).unwrap();
-            byte_buf.reverse();
-            info!("buf {:?}", byte_buf);
-            // 32 bits and I only want the last 28 
-            let mut bit_reader = BitReader::new(&byte_buf);
-            let cool = bit_reader.peek_u32(28).unwrap() << 4;
-            info!("before {}", cool);
-            return ((ret & 15) as u32 | (bit_reader.read_u32(28).unwrap()) << 4).into();
+            return (ret & 15) | (r.read::<u32>(28).unwrap() << 4); 
+
         }
         u32::MIN..u32::MAX => todo!(),
         u32::MAX => todo!(),
@@ -254,7 +233,9 @@ pub fn decode_packet(message: Peek) {
                 EDotaUserMessages::DotaUmUpdateSharedContent => todo!(),
                 EDotaUserMessages::DotaUmTutorialRequestExp => todo!(),
                 EDotaUserMessages::DotaUmTutorialPingMinimap => todo!(),
-                EDotaUserMessages::DotaUmGamerulesStateChanged => todo!(),
+                EDotaUserMessages::DotaUmGamerulesStateChanged => {
+                    info!("Game rules state change");
+                },
                 EDotaUserMessages::DotaUmShowSurvey => todo!(),
                 EDotaUserMessages::DotaUmTutorialFade => todo!(),
                 EDotaUserMessages::DotaUmAddQuestLogEntry => todo!(),
