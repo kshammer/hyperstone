@@ -89,9 +89,10 @@ where
         let mut varintbuf: Vec<u8, Global> = vec![0; 1];
         match reader.read_exact(&mut varintbuf) {
             Ok(_) => {
-                result |= (varintbuf[0] as u32 & 0x7f) << (7 * count);
+                let byte = varintbuf[0];
+                result |= (byte as u32 & 0x7f) << (7 * count);
                 count += 1;
-                if varintbuf[0] & 0x80 == 0 || 7 * count == 35 {
+                if byte & 0x80 == 0 || 7 * count == 35 {
                     // info!("{}",result);
                     return Ok(result.into());
                 }

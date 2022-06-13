@@ -86,11 +86,12 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemPacket => {
             info!("Packet");
-            info!("tick {}", peek._tick);
-            info!("size {}", peek._size);
+            // info!("tick {}", peek._tick);
+            // info!("size {}", peek._size);
+            // info!("message {:?}", peek.message);
             let dem_packet = CDemoPacket::decode(peek.message).unwrap();
             let cool_bytes = Bytes::from(dem_packet.data.unwrap());
-            info!("{:?}", cool_bytes.len());
+            // info!("packet data {:?}", cool_bytes);
             let mut reader = BufReader::new(cool_bytes.reader());
             parse_packet(&mut reader);
         }

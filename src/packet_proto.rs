@@ -1,9 +1,9 @@
 use std::{
-    io::{BufRead, BufReader, Read, Seek},
+    io::{BufRead, BufReader, Read, Seek}, alloc::Global,
 };
 use hyperstone_proto::dota_proto::*;
 
-use bitstream_io::{BitRead, BitReader, LittleEndian};
+use bitstream_io::{BitRead, BitReader, LittleEndian, BigEndian};
 use tracing::{debug, info};
 
 use crate::byte_utils::{get_message, read_varint, Peek};
@@ -42,7 +42,9 @@ where
             return (ret & 15) | (r.read::<u32>(4).unwrap() << 4); 
         }
         32 => {
-            return (ret & 15) | (r.read::<u32>(8).unwrap() << 4); 
+            let val = r.read::<u32>(8).unwrap();
+            info!("val {}", val);
+            return (ret & 15) | (val << 4); 
         }
         48 => {
             return (ret & 15) | (r.read::<u32>(28).unwrap() << 4); 
@@ -57,13 +59,19 @@ pub fn read_packet_segment<R>(reader: &mut BufReader<R>) -> Peek
 where
     R: Read,
 {
-    let kind = read_bits(reader); // might need to be smaller t := int32(r.readUBitVar())
-    info!("kind {}", kind);
 
+    let kind = read_bits(reader); 
+    info!("kind {}", kind);
+    let mut varintbuf: Vec<u8, Global> = vec![0; 10];
+    reader.read_exact(&mut varintbuf).unwrap();
+
+    info!("peeking {:?}", varintbuf);
+    
     let size = read_varint(reader).unwrap();
     info!("size {}", size);
 
     let message = get_message(reader, size, false);
+    info!("message {:?}", message);
 
     Peek {
         _tick: 0,
