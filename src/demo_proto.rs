@@ -1,4 +1,6 @@
+use bitstream_io::{BitReader, LittleEndian as OtherLittleEndian};
 use byteorder::{ByteOrder, LittleEndian};
+
 use bytes::{Buf, Bytes};
 use hyperstone_proto::dota_proto::*;
 use prost::Message;
@@ -8,7 +10,7 @@ use crate::{byte_utils, packet_proto::parse_packet};
 use std::{
     alloc::Global,
     fs::File,
-    io::{BufReader, Read, Seek, SeekFrom},
+    io::{BufReader, Cursor, Read, Seek, SeekFrom},
 };
 
 pub fn parse(reader: &mut BufReader<File>) -> i32 {
@@ -28,28 +30,22 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemFileHeader => {
             debug!("File Header");
-            // not a lot of interesting information in here, mostly meta data about the demo file.
-            // let header =  CDemoFileHeader::decode(peek.message).unwrap();
         }
         EDemoCommands::DemFileInfo => {
             debug!("File Info");
-            // ref get_file_info for how to investigate, information about players and meta data about the match.
-            // let file_info =  CDemoFileInfo::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSyncTick => {
             debug!("Sync Tick");
-            // nothing interesting in here right now.
         }
         EDemoCommands::DemSendTables => {
-            // something to be parsed
             debug!("Send tables");
-            let send_tables = CDemoSendTables::decode(peek.message).unwrap();
-            let cool_bytes = Bytes::from(send_tables.data.unwrap());
+            // let send_tables = CDemoSendTables::decode(peek.message).unwrap();
+            // let cool_bytes = Bytes::from(send_tables.data.unwrap());
             // read one varint off the bytes
-            let mut reader = BufReader::new(cool_bytes.reader());
-            let size = byte_utils::read_varint(&mut reader).unwrap();
-            let pog = byte_utils::get_message(&mut reader, size, false);
-            let message = CsvcMsgFlattenedSerializer::decode(pog).unwrap();
+            // let mut reader = BufReader::new(cool_bytes.reader());
+            // let size = byte_utils::read_varint(&mut reader).unwrap();
+            // let pog = byte_utils::get_message(&mut reader, size, false);
+            // let _message = CsvcMsgFlattenedSerializer::decode(pog).unwrap();
             // for symbol in message.symbols {
             //    println!("{}", symbol);
             // }
@@ -62,14 +58,6 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
             //     debug!("Network name {}", cool.network_name());
             //     debug!("Table name {}", cool.table_name());
             // }
-            // names of entities in the demo
-            //  INFO hyperstone::demo_proto: Table name
-            //  INFO hyperstone::demo_proto: Network name CDOTA_Unit_Hero_Sniper
-            //  INFO hyperstone::demo_proto: Table name
-            //  INFO hyperstone::demo_proto: Network name CDOTA_Unit_Hero_Spectre
-            //  INFO hyperstone::demo_proto: Table name
-            //  INFO hyperstone::demo_proto: Network name CDOTA_Unit_Hero_SpiritBreaker
-            //  INFO hyperstone::demo_proto: Table name
         }
         EDemoCommands::DemStringTables => {
             debug!("String tables");
@@ -86,14 +74,10 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemPacket => {
             info!("Packet");
-            // info!("tick {}", peek._tick);
-            // info!("size {}", peek._size);
-            // info!("message {:?}", peek.message);
             let dem_packet = CDemoPacket::decode(peek.message).unwrap();
             let cool_bytes = Bytes::from(dem_packet.data.unwrap());
-            // info!("packet data {:?}", cool_bytes);
-            let mut reader = BufReader::new(cool_bytes.reader());
-            parse_packet(&mut reader);
+            let mut r = BitReader::endian(Cursor::new(&cool_bytes), OtherLittleEndian);
+            parse_packet(&mut r, (cool_bytes.len() * 8).try_into().unwrap());
         }
         EDemoCommands::DemSignonPacket => {
             // no proto
@@ -101,31 +85,31 @@ pub fn parse(reader: &mut BufReader<File>) -> i32 {
         }
         EDemoCommands::DemConsoleCmd => {
             debug!("Console command");
-            let console_command = CDemoConsoleCmd::decode(peek.message).unwrap();
+            let _console_command = CDemoConsoleCmd::decode(peek.message).unwrap();
         }
         EDemoCommands::DemCustomData => {
             debug!("Custom Data");
-            let custom_data = CDemoCustomData::decode(peek.message).unwrap();
+            let _custom_data = CDemoCustomData::decode(peek.message).unwrap();
         }
         EDemoCommands::DemCustomDataCallbacks => {
             debug!("Custom data call back");
-            let callback = CDemoCustomDataCallbacks::decode(peek.message).unwrap();
+            let _callback = CDemoCustomDataCallbacks::decode(peek.message).unwrap();
         }
         EDemoCommands::DemUserCmd => {
             debug!("User command");
-            let user_command = CDemoUserCmd::decode(peek.message).unwrap();
+            let _user_command = CDemoUserCmd::decode(peek.message).unwrap();
         }
         EDemoCommands::DemFullPacket => {
             debug!("Full packet");
-            let full_packet = CDemoFullPacket::decode(peek.message).unwrap();
+            let _full_packet = CDemoFullPacket::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSaveGame => {
             debug!("Save game");
-            let save_game = CDemoSaveGame::decode(peek.message).unwrap();
+            let _save_game = CDemoSaveGame::decode(peek.message).unwrap();
         }
         EDemoCommands::DemSpawnGroups => {
             debug!("Spawn groups");
-            let spawn_groups = CDemoSpawnGroups::decode(peek.message).unwrap();
+            let _spawn_groups = CDemoSpawnGroups::decode(peek.message).unwrap();
         }
         EDemoCommands::DemMax => {
             debug!("Max");

@@ -6,7 +6,6 @@ use std::io::{BufReader, Read, Seek};
 use tracing::debug;
 use tracing::info;
 
-
 use hyperstone_proto::dota_proto::*;
 
 pub struct Peek {
@@ -93,7 +92,6 @@ where
                 result |= (byte as u32 & 0x7f) << (7 * count);
                 count += 1;
                 if byte & 0x80 == 0 || 7 * count == 35 {
-                    // info!("{}",result);
                     return Ok(result.into());
                 }
             }

@@ -1,77 +1,56 @@
-use std::{
-    io::{BufRead, BufReader, Read, Seek}, alloc::Global,
-};
+use bytes::Bytes;
 use hyperstone_proto::dota_proto::*;
+use std::{alloc::Global, io::Cursor};
 
-use bitstream_io::{BitRead, BitReader, LittleEndian, BigEndian};
+use bitstream_io::{BitRead, BitReader, LittleEndian};
 use tracing::{debug, info};
 
-use crate::byte_utils::{get_message, read_varint, Peek};
+use crate::byte_utils::Peek;
 
-pub fn parse_packet<R>(reader: &mut BufReader<R>)
-where
-    R: Read,
-{
+pub fn parse_packet(reader: &mut BitReader<Cursor<&Bytes>, LittleEndian>, size: u32) {
     let mut messages: Vec<Peek> = vec![];
-    while reader.has_data_left().unwrap() {
+    while size - reader.position_in_bits().unwrap() as u32 > 8 {
         messages.push(read_packet_segment(reader));
-        // next sort messages based on demo_packet.go OMEGALUL
     }
     for message in messages {
         decode_packet(message);
     }
 }
 
-pub fn read_bits<R>(reader: &mut BufReader<R>) -> u32
-where
-    R: Read,
-{
+pub fn read_bits(reader: &mut BitReader<Cursor<&Bytes>, LittleEndian>) -> u32 {
     // each bit chunk is taken from a byte
-    let mut r = BitReader::endian(reader, LittleEndian);
+    let ret = reader.read::<u32>(6).unwrap();
 
-    let ret = r.read::<u32>(6).unwrap();
-
-    info!("ret {}", ret); 
+    debug!("ret {}", ret);
 
     let cool_ret = ret & 0x30;
 
-    info!("Cool ret {}", cool_ret); 
+    debug!("Cool ret {}", cool_ret);
 
     match cool_ret {
         16 => {
-            return (ret & 15) | (r.read::<u32>(4).unwrap() << 4); 
+            return (ret & 15) | (reader.read::<u32>(4).unwrap() << 4);
         }
         32 => {
-            let val = r.read::<u32>(8).unwrap();
-            info!("val {}", val);
-            return (ret & 15) | (val << 4); 
+            return (ret & 15) | (reader.read::<u32>(8).unwrap() << 4);
         }
         48 => {
-            return (ret & 15) | (r.read::<u32>(28).unwrap() << 4); 
-
+            return (ret & 15) | (reader.read::<u32>(28).unwrap() << 4);
         }
-        u32::MIN..u32::MAX => todo!(),
-        u32::MAX => todo!(),
+        u32::MIN..u32::MAX => return ret,
+        u32::MAX => todo!()
     }
 }
 
-pub fn read_packet_segment<R>(reader: &mut BufReader<R>) -> Peek
-where
-    R: Read,
-{
+pub fn read_packet_segment(reader: &mut BitReader<Cursor<&Bytes>, LittleEndian>) -> Peek {
+    let kind = read_bits(reader);
+    debug!("kind {}", kind);
 
-    let kind = read_bits(reader); 
-    info!("kind {}", kind);
-    let mut varintbuf: Vec<u8, Global> = vec![0; 10];
-    reader.read_exact(&mut varintbuf).unwrap();
+    let size = read_varint_bit(reader);
+    debug!("size {}", size);
 
-    info!("peeking {:?}", varintbuf);
-    
-    let size = read_varint(reader).unwrap();
-    info!("size {}", size);
-
-    let message = get_message(reader, size, false);
-    info!("message {:?}", message);
+    let message = get_message_bit(reader, size);
+    debug!("message {:?}", message);
 
     Peek {
         _tick: 0,
@@ -82,275 +61,768 @@ where
     }
 }
 
+pub fn read_varint_bit(reader: &mut BitReader<Cursor<&Bytes>, LittleEndian>) -> u32 {
+    let mut count = 0;
+    let mut result = 0 as u32;
+    loop {
+        let byte = reader.read::<u8>(8).unwrap();
+        result |= (byte as u32 & 0x7f) << (7 * count);
+        count += 1;
+        if byte & 0x80 == 0 || 7 * count == 35 {
+            return result;
+        }
+    }
+}
+
+pub fn get_message_bit(reader: &mut BitReader<Cursor<&Bytes>, LittleEndian>, size: u32) -> Bytes {
+    let mut message: Vec<u8, Global> = vec![0; size.try_into().unwrap()];
+    reader.read_bytes(&mut message).unwrap();
+    let bytes = Bytes::from(message);
+    bytes
+}
+
 pub fn decode_packet(message: Peek) {
-    println!("Cool ass packet");
     let message_type = message.message_type as i32;
 
     match message_type {
         0..14 => {
             let net_message = NetMessages::from_i32(message_type).unwrap();
             match net_message {
-                NetMessages::NetNop => todo!(),
-                NetMessages::NetDisconnect => todo!(),
-                NetMessages::NetSplitScreenUser => todo!(),
-                NetMessages::NetTick => todo!(),
-                NetMessages::NetStringCmd => todo!(),
-                NetMessages::NetSetConVar => todo!(),
-                NetMessages::NetSignonState => todo!(),
-                NetMessages::NetSpawnGroupLoad => todo!(),
-                NetMessages::NetSpawnGroupManifestUpdate => todo!(),
-                NetMessages::NetSpawnGroupSetCreationTick => todo!(),
-                NetMessages::NetSpawnGroupUnload => todo!(),
-                NetMessages::NetSpawnGroupLoadCompleted => todo!(),
+                NetMessages::NetNop => {
+                    info!("Net Nop");
+                }
+                NetMessages::NetDisconnect => {
+                    info!("Net Disconnect");
+                }
+                NetMessages::NetSplitScreenUser => {
+                    info!("Net Split Screen User");
+                }
+                NetMessages::NetTick => {
+                    info!("Net Tick");
+                }
+                NetMessages::NetStringCmd => {
+                    info!("Net String Ccmd");
+                }
+                NetMessages::NetSetConVar => {
+                    info!("Net Set Con Var");
+                }
+                NetMessages::NetSignonState => {
+                    info!("Net Signon State");
+                }
+                NetMessages::NetSpawnGroupLoad => {
+                    info!("Net Spawn Group Load");
+                }
+                NetMessages::NetSpawnGroupManifestUpdate => {
+                    info!("Net Spawn Group Manifest Update");
+                }
+                NetMessages::NetSpawnGroupSetCreationTick => {
+                    info!("Net Spawn Group Set Creation Tick");
+                }
+                NetMessages::NetSpawnGroupUnload => {
+                    info!("Net Spawn Group Unload");
+                }
+                NetMessages::NetSpawnGroupLoadCompleted => {
+                    info!("Net Spawn Group Load Completed");
+                }
             }
         }
         40..73 => {
             let dota_message = SvcMessages::from_i32(message_type).unwrap();
             match dota_message {
-                SvcMessages::SvcServerInfo => todo!(),
-                SvcMessages::SvcFlattenedSerializer => todo!(),
-                SvcMessages::SvcClassInfo => todo!(),
-                SvcMessages::SvcSetPause => todo!(),
-                SvcMessages::SvcCreateStringTable => todo!(),
-                SvcMessages::SvcUpdateStringTable => todo!(),
-                SvcMessages::SvcVoiceInit => todo!(),
-                SvcMessages::SvcVoiceData => todo!(),
-                SvcMessages::SvcPrint => todo!(),
-                SvcMessages::SvcSounds => todo!(),
-                SvcMessages::SvcSetView => todo!(),
-                SvcMessages::SvcClearAllStringTables => todo!(),
-                SvcMessages::SvcCmdKeyValues => todo!(),
-                SvcMessages::SvcBspDecal => todo!(),
-                SvcMessages::SvcSplitScreen => todo!(),
-                SvcMessages::SvcPacketEntities => todo!(),
-                SvcMessages::SvcPrefetch => todo!(),
-                SvcMessages::SvcMenu => todo!(),
-                SvcMessages::SvcGetCvarValue => todo!(),
-                SvcMessages::SvcStopSound => todo!(),
-                SvcMessages::SvcPeerList => todo!(),
-                SvcMessages::SvcPacketReliable => todo!(),
-                SvcMessages::SvcHltvStatus => todo!(),
-                SvcMessages::SvcServerSteamId => todo!(),
-                SvcMessages::SvcFullFrameSplit => todo!(),
-                SvcMessages::SvcRconServerDetails => todo!(),
-                SvcMessages::SvcUserMessage => todo!(),
+                SvcMessages::SvcServerInfo => {
+                    info!("Svc Server info");
+                }
+                SvcMessages::SvcFlattenedSerializer => {
+                    info!("Svc Flattened Serializer");
+                }
+                SvcMessages::SvcClassInfo => {
+                    info!("Svc Class info");
+                }
+                SvcMessages::SvcSetPause => {
+                    info!("Svc Set pause");
+                }
+                SvcMessages::SvcCreateStringTable => {
+                    info!("Svc Create String table");
+                }
+                SvcMessages::SvcUpdateStringTable => {
+                    info!("Svc update string table");
+                }
+                SvcMessages::SvcVoiceInit => {
+                    info!("Svc voice init");
+                }
+                SvcMessages::SvcVoiceData => {
+                    info!("Svc voice data");
+                }
+                SvcMessages::SvcPrint => {
+                    info!("svc print");
+                }
+                SvcMessages::SvcSounds => {
+                    info!("Svc sounds");
+                }
+                SvcMessages::SvcSetView => {
+                    info!("Svc set view");
+                }
+                SvcMessages::SvcClearAllStringTables => {
+                    info!("Svc clear all string tables");
+                }
+                SvcMessages::SvcCmdKeyValues => {
+                    info!("svc cmd key values");
+                }
+                SvcMessages::SvcBspDecal => {
+                    info!("svc bsp decal");
+                }
+                SvcMessages::SvcSplitScreen => {
+                    info!("svc split screen");
+                }
+                SvcMessages::SvcPacketEntities => {
+                    info!("svc packet entities");
+                }
+                SvcMessages::SvcPrefetch => {
+                    info!("svc refresh");
+                }
+                SvcMessages::SvcMenu => {
+                    info!("svc menu");
+                }
+                SvcMessages::SvcGetCvarValue => {
+                    info!("svc get cvar value");
+                }
+                SvcMessages::SvcStopSound => {
+                    info!("svc stop sound");
+                }
+                SvcMessages::SvcPeerList => {
+                    info!("svc peer list");
+                }
+                SvcMessages::SvcPacketReliable => {
+                    info!("svc packet reliable");
+                }
+                SvcMessages::SvcHltvStatus => {
+                    info!("svc hltv status");
+                }
+                SvcMessages::SvcServerSteamId => {
+                    info!("svc server steam id");
+                }
+                SvcMessages::SvcFullFrameSplit => {
+                    info!("svc full frame split");
+                }
+                SvcMessages::SvcRconServerDetails => {
+                    info!("svc recon server details");
+                }
+                SvcMessages::SvcUserMessage => {
+                    info!("svc user message");
+                }
             }
         }
         101..153 => {
             let base_user_message = EBaseUserMessages::from_i32(message_type).unwrap();
             match base_user_message {
-                EBaseUserMessages::UmAchievementEvent => todo!(),
-                EBaseUserMessages::UmCloseCaption => todo!(),
-                EBaseUserMessages::UmCloseCaptionDirect => todo!(),
-                EBaseUserMessages::UmCurrentTimescale => todo!(),
-                EBaseUserMessages::UmDesiredTimescale => todo!(),
-                EBaseUserMessages::UmFade => todo!(),
-                EBaseUserMessages::UmGameTitle => todo!(),
-                EBaseUserMessages::UmHudMsg => todo!(),
-                EBaseUserMessages::UmHudText => todo!(),
-                EBaseUserMessages::UmColoredText => todo!(),
-                EBaseUserMessages::UmRequestState => todo!(),
-                EBaseUserMessages::UmResetHud => todo!(),
-                EBaseUserMessages::UmRumble => todo!(),
-                EBaseUserMessages::UmSayText => todo!(),
-                EBaseUserMessages::UmSayText2 => todo!(),
-                EBaseUserMessages::UmSayTextChannel => todo!(),
-                EBaseUserMessages::UmShake => todo!(),
-                EBaseUserMessages::UmShakeDir => todo!(),
-                EBaseUserMessages::UmTextMsg => todo!(),
-                EBaseUserMessages::UmScreenTilt => todo!(),
-                EBaseUserMessages::UmVoiceMask => todo!(),
-                EBaseUserMessages::UmVoiceSubtitle => todo!(),
-                EBaseUserMessages::UmSendAudio => todo!(),
-                EBaseUserMessages::UmItemPickup => todo!(),
-                EBaseUserMessages::UmAmmoDenied => todo!(),
-                EBaseUserMessages::UmShowMenu => todo!(),
-                EBaseUserMessages::UmCreditsMsg => todo!(),
-                EBaseUserMessages::UmCloseCaptionPlaceholder => todo!(),
-                EBaseUserMessages::UmCameraTransition => todo!(),
-                EBaseUserMessages::UmAudioParameter => todo!(),
-                EBaseUserMessages::UmParticleManager => todo!(),
-                EBaseUserMessages::UmHudError => todo!(),
-                EBaseUserMessages::UmCustomGameEvent => todo!(),
-                EBaseUserMessages::UmAnimGraphUpdate => todo!(),
-                EBaseUserMessages::UmHapticsManagerPulse => todo!(),
-                EBaseUserMessages::UmHapticsManagerEffect => todo!(),
-                EBaseUserMessages::UmCommandQueueState => todo!(),
-                EBaseUserMessages::UmMaxBase => todo!(),
+                EBaseUserMessages::UmAchievementEvent => {
+                    info!("um achievemnet event");
+                }
+                EBaseUserMessages::UmCloseCaption => {
+                    info!("close caption");
+                }
+                EBaseUserMessages::UmCloseCaptionDirect => {
+                    info!("close caption direct");
+                }
+                EBaseUserMessages::UmCurrentTimescale => {
+                    info!("current timescael");
+                }
+                EBaseUserMessages::UmDesiredTimescale => {
+                    info!("desired timescael");
+                }
+                EBaseUserMessages::UmFade => {
+                    info!("fade");
+                }
+                EBaseUserMessages::UmGameTitle => {
+                    info!("game tile ");
+                }
+                EBaseUserMessages::UmHudMsg => {
+                    info!("hud msg");
+                }
+                EBaseUserMessages::UmHudText => {
+                    info!("hud text");
+                }
+                EBaseUserMessages::UmColoredText => {
+                    info!("colored text");
+                }
+                EBaseUserMessages::UmRequestState => {
+                    info!("request state");
+                }
+                EBaseUserMessages::UmResetHud => {
+                    info!("resest hud");
+                }
+                EBaseUserMessages::UmRumble => {
+                    info!("rumble");
+                }
+                EBaseUserMessages::UmSayText => {
+                    info!("say text");
+                }
+                EBaseUserMessages::UmSayText2 => {
+                    info!("say text 2");
+                }
+                EBaseUserMessages::UmSayTextChannel => {
+                    info!("say text channel");
+                }
+                EBaseUserMessages::UmShake => {
+                    info!("shake");
+                }
+                EBaseUserMessages::UmShakeDir => {
+                    info!("shake dir");
+                }
+                EBaseUserMessages::UmTextMsg => {
+                    info!("text mmsg");
+                }
+                EBaseUserMessages::UmScreenTilt => {
+                    info!("screen tilt");
+                }
+                EBaseUserMessages::UmVoiceMask => {
+                    info!("voice mask");
+                }
+                EBaseUserMessages::UmVoiceSubtitle => {
+                    info!("voice subtitle");
+                }
+                EBaseUserMessages::UmSendAudio => {
+                    info!("send audio");
+                }
+                EBaseUserMessages::UmItemPickup => {
+                    info!("item pickup");
+                }
+                EBaseUserMessages::UmAmmoDenied => {
+                    info!("ammo denied");
+                }
+                EBaseUserMessages::UmShowMenu => {
+                    info!("show menu");
+                }
+                EBaseUserMessages::UmCreditsMsg => {
+                    info!("credits msg");
+                }
+                EBaseUserMessages::UmCloseCaptionPlaceholder => {
+                    info!("close capiton placeholder");
+                }
+                EBaseUserMessages::UmCameraTransition => {
+                    info!("camera transition");
+                }
+                EBaseUserMessages::UmAudioParameter => {
+                    info!("audio parameter");
+                }
+                EBaseUserMessages::UmParticleManager => {
+                    info!("particle manager");
+                }
+                EBaseUserMessages::UmHudError => {
+                    info!("hud errors");
+                }
+                EBaseUserMessages::UmCustomGameEvent => {
+                    info!("custom game event");
+                }
+                EBaseUserMessages::UmAnimGraphUpdate => {
+                    info!("anim graph update");
+                }
+                EBaseUserMessages::UmHapticsManagerPulse => {
+                    info!("haptics manager pulse");
+                }
+                EBaseUserMessages::UmHapticsManagerEffect => {
+                    info!("haptics manager effect");
+                }
+                EBaseUserMessages::UmCommandQueueState => {
+                    info!("Command queue state");
+                }
+                EBaseUserMessages::UmMaxBase => {
+                    info!("Max abse");
+                }
             }
         }
         200..213 => {
             let game_event = EBaseGameEvents::from_i32(message_type).unwrap();
             match game_event {
-                EBaseGameEvents::GeVDebugGameSessionIdEvent => todo!(),
-                EBaseGameEvents::GePlaceDecalEvent => todo!(),
-                EBaseGameEvents::GeClearWorldDecalsEvent => todo!(),
-                EBaseGameEvents::GeClearEntityDecalsEvent => todo!(),
-                EBaseGameEvents::GeClearDecalsForSkeletonInstanceEvent => todo!(),
-                EBaseGameEvents::GeSource1LegacyGameEventList => todo!(),
-                EBaseGameEvents::GeSource1LegacyListenEvents => todo!(),
-                EBaseGameEvents::GeSource1LegacyGameEvent => todo!(),
-                EBaseGameEvents::GeSosStartSoundEvent => todo!(),
-                EBaseGameEvents::GeSosStopSoundEvent => todo!(),
-                EBaseGameEvents::GeSosSetSoundEventParams => todo!(),
-                EBaseGameEvents::GeSosSetLibraryStackFields => todo!(),
-                EBaseGameEvents::GeSosStopSoundEventHash => todo!(),
+                EBaseGameEvents::GeVDebugGameSessionIdEvent => {
+                    info!("debug game session id event");
+                }
+                EBaseGameEvents::GePlaceDecalEvent => {
+                    info!("Place decal");
+                }
+                EBaseGameEvents::GeClearWorldDecalsEvent => {
+                    info!("clear world decals");
+                }
+                EBaseGameEvents::GeClearEntityDecalsEvent => {
+                    info!("entity decals");
+                }
+                EBaseGameEvents::GeClearDecalsForSkeletonInstanceEvent => {
+                    info!("clean decals for skeleton instance");
+                }
+                EBaseGameEvents::GeSource1LegacyGameEventList => {
+                    info!("souce 1 legacy game events list");
+                }
+                EBaseGameEvents::GeSource1LegacyListenEvents => {
+                    info!("Souce 1 listen events");
+                }
+                EBaseGameEvents::GeSource1LegacyGameEvent => {
+                    info!("legacy game event");
+                }
+                EBaseGameEvents::GeSosStartSoundEvent => {
+                    info!("sos start sound event");
+                }
+                EBaseGameEvents::GeSosStopSoundEvent => {
+                    info!("sos stop sound event");
+                }
+                EBaseGameEvents::GeSosSetSoundEventParams => {
+                    info!("sos set sound event params");
+                }
+                EBaseGameEvents::GeSosSetLibraryStackFields => {
+                    info!("sos set library stack fields ");
+                }
+                EBaseGameEvents::GeSosStopSoundEventHash => {
+                    info!("sos stop sound event hash");
+                }
             }
         }
         464..613 => {
             let dota_user_message = EDotaUserMessages::from_i32(message_type).unwrap();
             match dota_user_message {
-                EDotaUserMessages::DotaUmAddUnitToSelection => todo!(),
-                EDotaUserMessages::DotaUmAiDebugLine => todo!(),
-                EDotaUserMessages::DotaUmChatEvent => todo!(),
-                EDotaUserMessages::DotaUmCombatHeroPositions => todo!(),
-                EDotaUserMessages::DotaUmCombatLogData => todo!(),
-                EDotaUserMessages::DotaUmCombatLogBulkData => todo!(),
-                EDotaUserMessages::DotaUmCreateLinearProjectile => todo!(),
-                EDotaUserMessages::DotaUmDestroyLinearProjectile => todo!(),
-                EDotaUserMessages::DotaUmDodgeTrackingProjectiles => todo!(),
-                EDotaUserMessages::DotaUmGlobalLightColor => todo!(),
-                EDotaUserMessages::DotaUmGlobalLightDirection => todo!(),
-                EDotaUserMessages::DotaUmInvalidCommand => todo!(),
-                EDotaUserMessages::DotaUmLocationPing => todo!(),
-                EDotaUserMessages::DotaUmMapLine => todo!(),
-                EDotaUserMessages::DotaUmMiniKillCamInfo => todo!(),
-                EDotaUserMessages::DotaUmMinimapDebugPoint => todo!(),
-                EDotaUserMessages::DotaUmMinimapEvent => todo!(),
-                EDotaUserMessages::DotaUmNevermoreRequiem => todo!(),
-                EDotaUserMessages::DotaUmOverheadEvent => todo!(),
-                EDotaUserMessages::DotaUmSetNextAutobuyItem => todo!(),
-                EDotaUserMessages::DotaUmSharedCooldown => todo!(),
-                EDotaUserMessages::DotaUmSpectatorPlayerClick => todo!(),
-                EDotaUserMessages::DotaUmTutorialTipInfo => todo!(),
-                EDotaUserMessages::DotaUmUnitEvent => todo!(),
-                EDotaUserMessages::DotaUmParticleManager => todo!(),
-                EDotaUserMessages::DotaUmBotChat => todo!(),
-                EDotaUserMessages::DotaUmHudError => todo!(),
-                EDotaUserMessages::DotaUmItemPurchased => todo!(),
-                EDotaUserMessages::DotaUmPing => todo!(),
-                EDotaUserMessages::DotaUmItemFound => todo!(),
-                EDotaUserMessages::DotaUmCharacterSpeakConcept => todo!(),
-                EDotaUserMessages::DotaUmSwapVerify => todo!(),
-                EDotaUserMessages::DotaUmWorldLine => todo!(),
-                EDotaUserMessages::DotaUmTournamentDrop => todo!(),
-                EDotaUserMessages::DotaUmItemAlert => todo!(),
-                EDotaUserMessages::DotaUmHalloweenDrops => todo!(),
-                EDotaUserMessages::DotaUmChatWheel => todo!(),
-                EDotaUserMessages::DotaUmReceivedXmasGift => todo!(),
-                EDotaUserMessages::DotaUmUpdateSharedContent => todo!(),
-                EDotaUserMessages::DotaUmTutorialRequestExp => todo!(),
-                EDotaUserMessages::DotaUmTutorialPingMinimap => todo!(),
+                EDotaUserMessages::DotaUmAddUnitToSelection => {
+                    info!("um add unit to selection");
+                }
+                EDotaUserMessages::DotaUmAiDebugLine => {
+                    info!("ai debug line");
+                }
+                EDotaUserMessages::DotaUmChatEvent => {
+                    info!("chat event");
+                }
+                EDotaUserMessages::DotaUmCombatHeroPositions => {
+                    info!("combat hero positions");
+                }
+                EDotaUserMessages::DotaUmCombatLogData => {
+                    info!("combat log data");
+                }
+                EDotaUserMessages::DotaUmCombatLogBulkData => {
+                    info!("combat log bulk data");
+                }
+                EDotaUserMessages::DotaUmCreateLinearProjectile => {
+                    info!("create linear projectile");
+                }
+                EDotaUserMessages::DotaUmDestroyLinearProjectile => {
+                    info!("destory linear projectile");
+                }
+                EDotaUserMessages::DotaUmDodgeTrackingProjectiles => {
+                    info!("dodge tracking projectiles");
+                }
+                EDotaUserMessages::DotaUmGlobalLightColor => {
+                    info!("globla light color");
+                }
+                EDotaUserMessages::DotaUmGlobalLightDirection => {
+                    info!("global light direction");
+                }
+                EDotaUserMessages::DotaUmInvalidCommand => {
+                    info!("invalid command");
+                }
+                EDotaUserMessages::DotaUmLocationPing => {
+                    info!("location ping");
+                }
+                EDotaUserMessages::DotaUmMapLine => {
+                    info!("map line");
+                }
+                EDotaUserMessages::DotaUmMiniKillCamInfo => {
+                    info!("mini kill cam info");
+                }
+                EDotaUserMessages::DotaUmMinimapDebugPoint => {
+                    info!("minimap debug point");
+                }
+                EDotaUserMessages::DotaUmMinimapEvent => {
+                    info!("minimap event");
+                }
+                EDotaUserMessages::DotaUmNevermoreRequiem => {
+                    info!("nevermore requiem");
+                }
+                EDotaUserMessages::DotaUmOverheadEvent => {
+                    info!("overhead event");
+                }
+                EDotaUserMessages::DotaUmSetNextAutobuyItem => {
+                    info!("set next autobuy item");
+                }
+                EDotaUserMessages::DotaUmSharedCooldown => {
+                    info!("shared cooldown");
+                }
+                EDotaUserMessages::DotaUmSpectatorPlayerClick => {
+                    info!("spectator player click");
+                }
+                EDotaUserMessages::DotaUmTutorialTipInfo => {
+                    info!("tutorial tip info");
+                }
+                EDotaUserMessages::DotaUmUnitEvent => {
+                    info!("unit event");
+                }
+                EDotaUserMessages::DotaUmParticleManager => {
+                    info!("particle manager");
+                }
+                EDotaUserMessages::DotaUmBotChat => {
+                    info!("bot chat");
+                }
+                EDotaUserMessages::DotaUmHudError => {
+                    info!("hud error");
+                }
+                EDotaUserMessages::DotaUmItemPurchased => {
+                    info!("itme purchased");
+                }
+                EDotaUserMessages::DotaUmPing => {
+                    info!("ping");
+                }
+                EDotaUserMessages::DotaUmItemFound => {
+                    info!("itme found");
+                }
+                EDotaUserMessages::DotaUmCharacterSpeakConcept => {
+                    info!("character speak concept ");
+                }
+                EDotaUserMessages::DotaUmSwapVerify => {
+                    info!("swap verify");
+                }
+                EDotaUserMessages::DotaUmWorldLine => {
+                    info!("world line");
+                }
+                EDotaUserMessages::DotaUmTournamentDrop => {
+                    info!("tournament drop");
+                }
+                EDotaUserMessages::DotaUmItemAlert => {
+                    info!("item alert");
+                }
+                EDotaUserMessages::DotaUmHalloweenDrops => {
+                    info!("halloween drops");
+                }
+                EDotaUserMessages::DotaUmChatWheel => {
+                    info!("caht wheel");
+                }
+                EDotaUserMessages::DotaUmReceivedXmasGift => {
+                    info!("received xmas gift");
+                }
+                EDotaUserMessages::DotaUmUpdateSharedContent => {
+                    info!("update shared content");
+                }
+                EDotaUserMessages::DotaUmTutorialRequestExp => {
+                    info!("turotiral request exp");
+                }
+                EDotaUserMessages::DotaUmTutorialPingMinimap => {
+                    info!("tutorial ping map");
+                }
                 EDotaUserMessages::DotaUmGamerulesStateChanged => {
                     info!("Game rules state change");
-                },
-                EDotaUserMessages::DotaUmShowSurvey => todo!(),
-                EDotaUserMessages::DotaUmTutorialFade => todo!(),
-                EDotaUserMessages::DotaUmAddQuestLogEntry => todo!(),
-                EDotaUserMessages::DotaUmSendStatPopup => todo!(),
-                EDotaUserMessages::DotaUmTutorialFinish => todo!(),
-                EDotaUserMessages::DotaUmSendRoshanPopup => todo!(),
-                EDotaUserMessages::DotaUmSendGenericToolTip => todo!(),
-                EDotaUserMessages::DotaUmSendFinalGold => todo!(),
-                EDotaUserMessages::DotaUmCustomMsg => todo!(),
-                EDotaUserMessages::DotaUmCoachHudPing => todo!(),
-                EDotaUserMessages::DotaUmClientLoadGridNav => todo!(),
-                EDotaUserMessages::DotaUmTeProjectile => todo!(),
-                EDotaUserMessages::DotaUmTeProjectileLoc => todo!(),
-                EDotaUserMessages::DotaUmTeDotaBloodImpact => todo!(),
-                EDotaUserMessages::DotaUmTeUnitAnimation => todo!(),
-                EDotaUserMessages::DotaUmTeUnitAnimationEnd => todo!(),
-                EDotaUserMessages::DotaUmAbilityPing => todo!(),
-                EDotaUserMessages::DotaUmShowGenericPopup => todo!(),
-                EDotaUserMessages::DotaUmVoteStart => todo!(),
-                EDotaUserMessages::DotaUmVoteUpdate => todo!(),
-                EDotaUserMessages::DotaUmVoteEnd => todo!(),
-                EDotaUserMessages::DotaUmBoosterState => todo!(),
-                EDotaUserMessages::DotaUmWillPurchaseAlert => todo!(),
-                EDotaUserMessages::DotaUmTutorialMinimapPosition => todo!(),
-                EDotaUserMessages::DotaUmPlayerMmr => todo!(),
-                EDotaUserMessages::DotaUmAbilitySteal => todo!(),
-                EDotaUserMessages::DotaUmCourierKilledAlert => todo!(),
-                EDotaUserMessages::DotaUmEnemyItemAlert => todo!(),
-                EDotaUserMessages::DotaUmStatsMatchDetails => todo!(),
-                EDotaUserMessages::DotaUmMiniTaunt => todo!(),
-                EDotaUserMessages::DotaUmBuyBackStateAlert => todo!(),
-                EDotaUserMessages::DotaUmSpeechBubble => todo!(),
-                EDotaUserMessages::DotaUmCustomHeaderMessage => todo!(),
-                EDotaUserMessages::DotaUmQuickBuyAlert => todo!(),
-                EDotaUserMessages::DotaUmStatsHeroDetails => todo!(),
-                EDotaUserMessages::DotaUmPredictionResult => todo!(),
-                EDotaUserMessages::DotaUmModifierAlert => todo!(),
-                EDotaUserMessages::DotaUmHpManaAlert => todo!(),
-                EDotaUserMessages::DotaUmGlyphAlert => todo!(),
-                EDotaUserMessages::DotaUmBeastChat => todo!(),
-                EDotaUserMessages::DotaUmSpectatorPlayerUnitOrders => todo!(),
-                EDotaUserMessages::DotaUmCustomHudElementCreate => todo!(),
-                EDotaUserMessages::DotaUmCustomHudElementModify => todo!(),
-                EDotaUserMessages::DotaUmCustomHudElementDestroy => todo!(),
-                EDotaUserMessages::DotaUmCompendiumState => todo!(),
-                EDotaUserMessages::DotaUmProjectionAbility => todo!(),
-                EDotaUserMessages::DotaUmProjectionEvent => todo!(),
-                EDotaUserMessages::DotaUmCombatLogDataHltv => todo!(),
-                EDotaUserMessages::DotaUmXpAlert => todo!(),
-                EDotaUserMessages::DotaUmUpdateQuestProgress => todo!(),
-                EDotaUserMessages::DotaUmMatchMetadata => todo!(),
-                EDotaUserMessages::DotaUmMatchDetails => todo!(),
-                EDotaUserMessages::DotaUmQuestStatus => todo!(),
-                EDotaUserMessages::DotaUmSuggestHeroPick => todo!(),
-                EDotaUserMessages::DotaUmSuggestHeroRole => todo!(),
-                EDotaUserMessages::DotaUmKillcamDamageTaken => todo!(),
-                EDotaUserMessages::DotaUmSelectPenaltyGold => todo!(),
-                EDotaUserMessages::DotaUmRollDiceResult => todo!(),
-                EDotaUserMessages::DotaUmFlipCoinResult => todo!(),
-                EDotaUserMessages::DotaUmRequestItemSuggestions => todo!(),
-                EDotaUserMessages::DotaUmTeamCaptainChanged => todo!(),
-                EDotaUserMessages::DotaUmSendRoshanSpectatorPhase => todo!(),
-                EDotaUserMessages::DotaUmChatWheelCooldown => todo!(),
-                EDotaUserMessages::DotaUmDismissAllStatPopups => todo!(),
-                EDotaUserMessages::DotaUmTeDestroyProjectile => todo!(),
-                EDotaUserMessages::DotaUmHeroRelicProgress => todo!(),
-                EDotaUserMessages::DotaUmAbilityDraftRequestAbility => todo!(),
-                EDotaUserMessages::DotaUmItemSold => todo!(),
-                EDotaUserMessages::DotaUmDamageReport => todo!(),
-                EDotaUserMessages::DotaUmSalutePlayer => todo!(),
-                EDotaUserMessages::DotaUmTipAlert => todo!(),
-                EDotaUserMessages::DotaUmReplaceQueryUnit => todo!(),
-                EDotaUserMessages::DotaUmEmptyTeleportAlert => todo!(),
-                EDotaUserMessages::DotaUmMarsArenaOfBloodAttack => todo!(),
-                EDotaUserMessages::DotaUmEsArcanaCombo => todo!(),
-                EDotaUserMessages::DotaUmEsArcanaComboSummary => todo!(),
-                EDotaUserMessages::DotaUmHighFiveLeftHanging => todo!(),
-                EDotaUserMessages::DotaUmHighFiveCompleted => todo!(),
-                EDotaUserMessages::DotaUmShovelUnearth => todo!(),
-                EDotaUserMessages::DotaEmInvokerSpellCast => todo!(),
-                EDotaUserMessages::DotaUmRadarAlert => todo!(),
-                EDotaUserMessages::DotaUmAllStarEvent => todo!(),
-                EDotaUserMessages::DotaUmTalentTreeAlert => todo!(),
-                EDotaUserMessages::DotaUmQueuedOrderRemoved => todo!(),
-                EDotaUserMessages::DotaUmDebugChallenge => todo!(),
-                EDotaUserMessages::DotaUmOmArcanaCombo => todo!(),
-                EDotaUserMessages::DotaUmFoundNeutralItem => todo!(),
-                EDotaUserMessages::DotaUmOutpostCaptured => todo!(),
-                EDotaUserMessages::DotaUmOutpostGrantedXp => todo!(),
-                EDotaUserMessages::DotaUmMoveCameraToUnit => todo!(),
-                EDotaUserMessages::DotaUmPauseMinigameData => todo!(),
-                EDotaUserMessages::DotaUmVersusScenePlayerBehavior => todo!(),
-                EDotaUserMessages::DotaUmQoPArcanaSummary => todo!(),
-                EDotaUserMessages::DotaUmHotPotatoCreated => todo!(),
-                EDotaUserMessages::DotaUmHotPotatoExploded => todo!(),
-                EDotaUserMessages::DotaUmWkArcanaProgress => todo!(),
-                EDotaUserMessages::DotaUmGuildChallengeProgress => todo!(),
-                EDotaUserMessages::DotaUmWrArcanaProgress => todo!(),
-                EDotaUserMessages::DotaUmWrArcanaSummary => todo!(),
-                EDotaUserMessages::DotaUmEmptyItemSlotAlert => todo!(),
-                EDotaUserMessages::DotaUmAghsStatusAlert => todo!(),
-                EDotaUserMessages::DotaUmPingConfirmation => todo!(),
-                EDotaUserMessages::DotaUmMutedPlayers => todo!(),
-                EDotaUserMessages::DotaUmContextualTip => todo!(),
-                EDotaUserMessages::DotaUmChatMessage => todo!(),
+                }
+                EDotaUserMessages::DotaUmShowSurvey => {
+                    info!("show survey");
+                }
+                EDotaUserMessages::DotaUmTutorialFade => {
+                    info!("turutal fade");
+                }
+                EDotaUserMessages::DotaUmAddQuestLogEntry => {
+                    info!("add quest log entry");
+                }
+                EDotaUserMessages::DotaUmSendStatPopup => {
+                    info!("send stat popup");
+                }
+                EDotaUserMessages::DotaUmTutorialFinish => {
+                    info!("tutorial finish");
+                }
+                EDotaUserMessages::DotaUmSendRoshanPopup => {
+                    info!("send roshan popup");
+                }
+                EDotaUserMessages::DotaUmSendGenericToolTip => {
+                    info!("send generic tool tip");
+                }
+                EDotaUserMessages::DotaUmSendFinalGold => {
+                    info!("send final gold");
+                }
+                EDotaUserMessages::DotaUmCustomMsg => {
+                    info!("custom msg");
+                }
+                EDotaUserMessages::DotaUmCoachHudPing => {
+                    info!("coach hud ping");
+                }
+                EDotaUserMessages::DotaUmClientLoadGridNav => {
+                    info!("client load grid nav");
+                }
+                EDotaUserMessages::DotaUmTeProjectile => {
+                    info!("te projectile");
+                }
+                EDotaUserMessages::DotaUmTeProjectileLoc => {
+                    info!("te projectile loc");
+                }
+                EDotaUserMessages::DotaUmTeDotaBloodImpact => {
+                    info!("te dota blood impcat");
+                }
+                EDotaUserMessages::DotaUmTeUnitAnimation => {
+                    info!("te unit animation");
+                }
+                EDotaUserMessages::DotaUmTeUnitAnimationEnd => {
+                    info!("unit animation end");
+                }
+                EDotaUserMessages::DotaUmAbilityPing => {
+                    info!("ability ping");
+                }
+                EDotaUserMessages::DotaUmShowGenericPopup => {
+                    info!("show generic popup");
+                }
+                EDotaUserMessages::DotaUmVoteStart => {
+                    info!("vote start");
+                }
+                EDotaUserMessages::DotaUmVoteUpdate => {
+                    info!("vote update");
+                }
+                EDotaUserMessages::DotaUmVoteEnd => {
+                    info!("vote ended");
+                }
+                EDotaUserMessages::DotaUmBoosterState => {
+                    info!("booster state");
+                }
+                EDotaUserMessages::DotaUmWillPurchaseAlert => {
+                    info!("will purchase alert");
+                }
+                EDotaUserMessages::DotaUmTutorialMinimapPosition => {
+                    info!("minimap position tutorial ");
+                }
+                EDotaUserMessages::DotaUmPlayerMmr => {
+                    info!("player mmr");
+                }
+                EDotaUserMessages::DotaUmAbilitySteal => {
+                    info!("ability steal ");
+                }
+                EDotaUserMessages::DotaUmCourierKilledAlert => {
+                    info!("courier killed alert");
+                }
+                EDotaUserMessages::DotaUmEnemyItemAlert => {
+                    info!("enemy item alert");
+                }
+                EDotaUserMessages::DotaUmStatsMatchDetails => {
+                    info!("stat match detials");
+                }
+                EDotaUserMessages::DotaUmMiniTaunt => {
+                    info!("mini taunt");
+                }
+                EDotaUserMessages::DotaUmBuyBackStateAlert => {
+                    info!("buy back state alert");
+                }
+                EDotaUserMessages::DotaUmSpeechBubble => {
+                    info!("speech buble");
+                }
+                EDotaUserMessages::DotaUmCustomHeaderMessage => {
+                    info!("custom header message");
+                }
+                EDotaUserMessages::DotaUmQuickBuyAlert => {
+                    info!("quick buy alert");
+                }
+                EDotaUserMessages::DotaUmStatsHeroDetails => {
+                    info!("stats hero details ");
+                }
+                EDotaUserMessages::DotaUmPredictionResult => {
+                    info!("prediciton result");
+                }
+                EDotaUserMessages::DotaUmModifierAlert => {
+                    info!("modifier alert");
+                }
+                EDotaUserMessages::DotaUmHpManaAlert => {
+                    info!("hp mana alert");
+                }
+                EDotaUserMessages::DotaUmGlyphAlert => {
+                    info!("glyph alert");
+                }
+                EDotaUserMessages::DotaUmBeastChat => {
+                    info!("beast chat");
+                }
+                EDotaUserMessages::DotaUmSpectatorPlayerUnitOrders => {
+                    info!("spec player unit orders");
+                }
+                EDotaUserMessages::DotaUmCustomHudElementCreate => {
+                    info!("custom hud element creaete");
+                }
+                EDotaUserMessages::DotaUmCustomHudElementModify => {
+                    info!("custom hud element modify");
+                }
+                EDotaUserMessages::DotaUmCustomHudElementDestroy => {
+                    info!("Custom hud element destroy ");
+                }
+                EDotaUserMessages::DotaUmCompendiumState => {
+                    info!("Compendium states");
+                }
+                EDotaUserMessages::DotaUmProjectionAbility => {
+                    info!("projection ability");
+                }
+                EDotaUserMessages::DotaUmProjectionEvent => {
+                    info!("projection event");
+                }
+                EDotaUserMessages::DotaUmCombatLogDataHltv => {
+                    info!("Combat Log")
+                }
+                EDotaUserMessages::DotaUmXpAlert => {
+                    info!("xp alert");
+                }
+                EDotaUserMessages::DotaUmUpdateQuestProgress => {
+                    info!("update quest progress");
+                }
+                EDotaUserMessages::DotaUmMatchMetadata => {
+                    info!("match metadata");
+                }
+                EDotaUserMessages::DotaUmMatchDetails => {
+                    info!("match details ");
+                }
+                EDotaUserMessages::DotaUmQuestStatus => {
+                    info!("quest status");
+                }
+                EDotaUserMessages::DotaUmSuggestHeroPick => {
+                    info!("suggest hero pick");
+                }
+                EDotaUserMessages::DotaUmSuggestHeroRole => {
+                    info!("suggest hero role");
+                }
+                EDotaUserMessages::DotaUmKillcamDamageTaken => {
+                    info!("kill cam damage taken");
+                }
+                EDotaUserMessages::DotaUmSelectPenaltyGold => {
+                    info!("select penatly gold");
+                }
+                EDotaUserMessages::DotaUmRollDiceResult => {
+                    info!("roll dice result");
+                }
+                EDotaUserMessages::DotaUmFlipCoinResult => {
+                    info!("flip coin result");
+                }
+                EDotaUserMessages::DotaUmRequestItemSuggestions => {
+                    info!("request item suggestions");
+                }
+                EDotaUserMessages::DotaUmTeamCaptainChanged => {
+                    info!("team captian changed");
+                }
+                EDotaUserMessages::DotaUmSendRoshanSpectatorPhase => {
+                    info!("send roshan spectator phase");
+                }
+                EDotaUserMessages::DotaUmChatWheelCooldown => {
+                    info!("chatwheel cooldown");
+                }
+                EDotaUserMessages::DotaUmDismissAllStatPopups => {
+                    info!("dismiss all stat popups");
+                }
+                EDotaUserMessages::DotaUmTeDestroyProjectile => {
+                    info!("destory projectile ");
+                }
+                EDotaUserMessages::DotaUmHeroRelicProgress => {
+                    info!("hero relic progress");
+                }
+                EDotaUserMessages::DotaUmAbilityDraftRequestAbility => {
+                    info!("draft request ability");
+                }
+                EDotaUserMessages::DotaUmItemSold => {
+                    info!("item sold");
+                }
+                EDotaUserMessages::DotaUmDamageReport => {
+                    info!("damage report");
+                }
+                EDotaUserMessages::DotaUmSalutePlayer => {
+                    info!("salute player");
+                }
+                EDotaUserMessages::DotaUmTipAlert => {
+                    info!("tip alert");
+                }
+                EDotaUserMessages::DotaUmReplaceQueryUnit => {
+                    info!("replace query unit");
+                }
+                EDotaUserMessages::DotaUmEmptyTeleportAlert => {
+                    info!("empty teleport alert");
+                }
+                EDotaUserMessages::DotaUmMarsArenaOfBloodAttack => {
+                    info!("arena of blood attack ");
+                }
+                EDotaUserMessages::DotaUmEsArcanaCombo => {
+                    info!("arcanan combo");
+                }
+                EDotaUserMessages::DotaUmEsArcanaComboSummary => {
+                    info!("es arcana combo summ");
+                }
+                EDotaUserMessages::DotaUmHighFiveLeftHanging => {
+                    info!("high five left hanging");
+                }
+                EDotaUserMessages::DotaUmHighFiveCompleted => {
+                    info!("high five completed");
+                }
+                EDotaUserMessages::DotaUmShovelUnearth => {
+                    info!("shovel unearth");
+                }
+                EDotaUserMessages::DotaEmInvokerSpellCast => {
+                    info!("invoker spell cast");
+                }
+                EDotaUserMessages::DotaUmRadarAlert => {
+                    info!("radar alert");
+                }
+                EDotaUserMessages::DotaUmAllStarEvent => {
+                    info!("all star event");
+                }
+                EDotaUserMessages::DotaUmTalentTreeAlert => {
+                    info!("talent tree alert");
+                }
+                EDotaUserMessages::DotaUmQueuedOrderRemoved => {
+                    info!("queu order ermoved");
+                }
+                EDotaUserMessages::DotaUmDebugChallenge => {
+                    info!("debug challenge");
+                }
+                EDotaUserMessages::DotaUmOmArcanaCombo => {
+                    info!("arcana combo");
+                }
+                EDotaUserMessages::DotaUmFoundNeutralItem => {
+                    info!("found neutral item ");
+                }
+                EDotaUserMessages::DotaUmOutpostCaptured => {
+                    info!("outpost captured");
+                }
+                EDotaUserMessages::DotaUmOutpostGrantedXp => {
+                    info!("outpost grant xp");
+                }
+                EDotaUserMessages::DotaUmMoveCameraToUnit => {
+                    info!("move camera to unit");
+                }
+                EDotaUserMessages::DotaUmPauseMinigameData => {
+                    info!("pause minigame data");
+                }
+                EDotaUserMessages::DotaUmVersusScenePlayerBehavior => {
+                    info!("versus scene player behavoir");
+                }
+                EDotaUserMessages::DotaUmQoPArcanaSummary => {
+                    info!("qop arcana summary");
+                }
+                EDotaUserMessages::DotaUmHotPotatoCreated => {
+                    info!("hot potato created");
+                }
+                EDotaUserMessages::DotaUmHotPotatoExploded => {
+                    info!("hot potato exploded");
+                }
+                EDotaUserMessages::DotaUmWkArcanaProgress => {
+                    info!("wk arcana progress");
+                }
+                EDotaUserMessages::DotaUmGuildChallengeProgress => {
+                    info!("guild challenge progress");
+                }
+                EDotaUserMessages::DotaUmWrArcanaProgress => {
+                    info!("wr arcana progress");
+                }
+                EDotaUserMessages::DotaUmWrArcanaSummary => {
+                    info!("wr arcana suammary ");
+                }
+                EDotaUserMessages::DotaUmEmptyItemSlotAlert => {
+                    info!("empty item slot alert ");
+                }
+                EDotaUserMessages::DotaUmAghsStatusAlert => {
+                    info!("aghs status alert");
+                }
+                EDotaUserMessages::DotaUmPingConfirmation => {
+                    info!("ping ocnfirmatin");
+                }
+                EDotaUserMessages::DotaUmMutedPlayers => {
+                    info!("muted palyer");
+                }
+                EDotaUserMessages::DotaUmContextualTip => {
+                    info!("contextual tip");
+                }
+                EDotaUserMessages::DotaUmChatMessage => {
+                    info!("chat message");
+                }
             }
         }
-        i32::MIN..=-1_i32 | 13_i32..=i32::MAX => todo!(),
+        i32::MIN..=-1_i32 | 13_i32..=i32::MAX => {
+            info!("");
+        }
     }
 }
