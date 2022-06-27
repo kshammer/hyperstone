@@ -1,3 +1,5 @@
+use std::io::{BufReader, Read};
+
 use bytes::Bytes;
 
 pub struct Peek {
@@ -9,3 +11,7 @@ pub struct Peek {
 }
 
 
+
+pub fn parse<R>(reader: &mut BufReader<R>) where R:Read{
+    
+}
