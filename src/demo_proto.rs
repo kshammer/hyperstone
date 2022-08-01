@@ -13,7 +13,7 @@ use std::{
     io::{BufReader, Cursor, Read, Seek, SeekFrom},
 };
 
-pub fn parse(reader: &mut BufReader<File>) -> i32 {
+pub fn parse_replay<R>(reader: &mut BufReader<R>) -> i32  where R:Read, R:Seek {
     let peek = match byte_utils::read_segment(reader) {
         Ok(peek) => peek,
         Err(_) => return -1,

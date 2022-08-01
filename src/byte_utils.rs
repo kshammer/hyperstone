@@ -1,7 +1,6 @@
 use bytes::Bytes;
 use snap::raw::Decoder;
 use std::alloc::Global;
-use std::fs::File;
 use std::io::{BufReader, Read, Seek};
 use tracing::debug;
 use tracing::info;
@@ -20,7 +19,7 @@ pub struct ParseError {
     pub error: String,
 }
 
-pub fn read_segment(reader: &mut BufReader<File>) -> Result<Peek, ParseError> {
+pub fn read_segment<R>(reader: &mut BufReader<R>)  ->  Result<Peek, ParseError> where R:Read, R:Seek{
     let mut kind = match read_varint(reader) {
         Ok(val) => val,
         Err(_) => {

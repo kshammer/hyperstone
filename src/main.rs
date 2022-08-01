@@ -16,7 +16,6 @@ mod byte_utils;
 mod demo_proto;
 mod packet_proto;
 use crate::demo_proto::get_file_info;
-use crate::demo_proto::parse;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -24,20 +23,5 @@ fn main() {
         .init();
     let f = File::open("dota.dem").unwrap();
     let mut reader = BufReader::new(f);
-    let mut buffer: Vec<u8, Global> = vec![0; 8];
-    reader.read_exact(&mut buffer).unwrap();
-    let demo_header = str::from_utf8(&buffer).unwrap();
-    debug!("Header {}", demo_header);
-    let current_pos = get_file_info(&mut reader) + 4; // go to byte 16
-    debug!("current {}", current_pos);
-    reader.seek(SeekFrom::Start(current_pos)).unwrap();
-    let now = Instant::now();
-
-    // switch to has data left
-    loop {
-        if parse(&mut reader) == -1 {
-            break;
-        };
-    }
-    info!("Elapsed {}", now.elapsed().as_secs());
+    
 }
