@@ -24,6 +24,7 @@ pub struct Peek {
 
 
 
+
 pub fn parse<R>(reader: &mut BufReader<R>) where R:Read, R:Seek{
     let mut buffer: Vec<u8, Global> = vec![0; 8];
     reader.read_exact(&mut buffer).unwrap();
